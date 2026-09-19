@@ -353,22 +353,10 @@
         ">
         <input
           type="button"
-          value="测试振动"
-          onclick="testVib"
-          style="
-            width: 172px;
-            height: 42px;
-            border-radius: 21px;
-            font-size: 18px;
-            color: #ffffff;
-            background-color: #1f2937;
-          " />
-        <input
-          type="button"
           value="恢复默认"
           onclick="restoreDefaults"
           style="
-            width: 172px;
+            width: 360px;
             height: 42px;
             border-radius: 21px;
             font-size: 18px;
@@ -377,11 +365,11 @@
           " />
       </div>
 
-      <text style="width: 360px; font-size: 12px; color: #f59e0b; margin-top: 8px">
-        {{ vibTest }}
-      </text>
       <text style="width: 360px; font-size: 12px; color: #60a5fa; margin-top: 4px">
         表冠：{{ crownText }}
+      </text>
+      <text style="width: 360px; font-size: 13px; color: #6b7280; margin-top: 6px">
+        版本 {{ appVer }}
       </text>
       <div
         style="
@@ -430,16 +418,21 @@
   const HOST = 'data.gateapi.io'
   const GATE_PATH = '/api2/1/ticker/btc_usdt'
   const GATE_HTTPS = 'https://data.gateapi.io/api2/1/ticker/btc_usdt'
-  const HARD_IPS = ['13.114.117.54', '13.159.219.98']
+  /* 只保留实测可用 IP（第二个 13.159.219.98 会返回 301，卡死网络栈） */
+  const HARD_IPS = ['13.114.117.54']
 
+  /* 日K：腾讯港股日线（上周真机验证过可用的源，恢复使用） */
   const KLINE_URL =
     'https://web.ifzq.gtimg.cn/appstock/app/hkfqkline/get?param=hk03066,day,,,320,qfq'
+  /* 日K 备用源：东财 HTTP（仅在腾讯失败时手动重试用） */
+  const KLINE_URL_EM =
+    'http://push2his.eastmoney.com/api/qt/stock/kline/get?secid=116.03066&klt=101&fqt=1&lmt=40&end=20500101&fields1=f1,f2,f3,f4&fields2=f51,f52,f53,f54,f55,f56'
   const KLINE_KEY = 'hk03066'
   const KLINE_N = 40
 
   const REQ_TIMEOUT = 4500
   const REQ_TIMEOUT_K = 9000
-  const HIST_TIMEOUT = 12000
+  const HIST_TIMEOUT = 6000
   const LIVE_RETRY = 5000
   const GATE_V2_KLINE15 = '/api2/1/candlestick/btc_usdt?group_sec=900&range_hour=24'
   const GATE_V2_KLINE30 = '/api2/1/candlestick/btc_usdt?group_sec=1800&range_hour=24'
@@ -449,22 +442,32 @@
     'http://push2his.eastmoney.com/api/qt/stock/kline/get?secid=116.03066&klt=5&fqt=1&lmt=40&end=20500101&fields1=f1,f2,f3,f4&fields2=f51,f52,f53,f54,f55,f56'
   const TENCENT_MIN = 'https://web.ifzq.gtimg.cn/appstock/app/minute/query?code=hk03066'
   const ITV_STEPS = [5, 10, 15, 30, 60]
-  const MAX_SAMPLES = 480
-  const SAMPLE_PER = 4
-  const SLOT_K = 40
+  const MAX_SAMPLES = 520
+  const SAMPLE_PER = 10
+  const SLOT_K = 48
   const SMP_KEY = 'btcwatch_samples'
   /* 真·分钟K线补历史（v4 走 443 可用；域名解析失败时用 IP + Host 兜底） */
   const GATE_API_HOST = 'api.gateio.ws'
   const GATE_API_IPS = ['54.150.38.76', '54.250.14.127', '57.183.50.180']
-  const GATE_V4_PATH = '/api/v4/spot/candlesticks?currency_pair=BTC_USDT&interval=1m&limit=60'
+  const GATE_V4_PATH = '/api/v4/spot/candlesticks?currency_pair=BTC_USDT&interval=1m&limit=120'
+  /* 币安公共数据域名（无需 key，国内通常可直连） */
+  const BINANCE_KL =
+    'https://data-api.binance.vision/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=120'
+  const BINANCE_KL2 = 'https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=120'
+  const OKX_KL = 'https://www.okx.com/api/v5/market/candles?instId=BTC-USDT&bar=1m&limit=120'
   /* Gate v2 老接口：明文 HTTP:80 就能拿 K线（手表唯一验证过能通的通道） */
   const GATE_V2_KLINE = '/api2/1/candlestick/btc_usdt?group_sec=300&range_hour=24'
   const GATE_V2_KLINE2 = '/api2/1/candlestick/btc_usdt?group_sec=60&range_hour=6'
-  const COINEX_LIVE = 'https://api.coinex.com/v2/spot/kline?market=BTCUSDT&period=1min&limit=60'
-  const LIVE_KEEP = 40
+  const COINEX_LIVE = 'https://api.coinex.com/v2/spot/kline?market=BTCUSDT&period=1min&limit=120'
+  const LIVE_KEEP = 48
+  /* 历史源一次取多少根原始 K线（1 分钟粒度 → 120 根 = 2 小时） */
+  const SRC_BARS = 120
+  /* 每根蜡烛的真实时长（Gate 蜡烛接口固定 30 分钟） */
+  const BAR_MS = 1800000
   const LABEL_H = 18
-  const CROWN_INVERT = false
+  const CROWN_INVERT = true
   const CFG_KEY = 'btcwatch_cfg'
+  const APP_VER = 'v1.1.21'
   const UA_H = {
     'User-Agent':
       'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36',
@@ -656,6 +659,27 @@
     return { last: last, pct: safeNum(pct), high: safeNum(hi), low: safeNum(lo), vol: safeNum(vol) }
   }
 
+  /* 东财日线：{"data":{"klines":["2026-09-18,开,收,高,低,...", ...]}} → [[日期,开,收,高,低], ...] */
+  function pickEmDay(res) {
+    let raw = res
+    if (raw && raw.data !== undefined && raw.data !== null) raw = raw.data
+    const j = toObj(raw)
+    if (!j) return null
+    const root = j.data
+    if (!root) return null
+    const arr = root.klines
+    if (!arr || typeof arr.length !== 'number' || arr.length < 2) return null
+    const out = []
+    let i = 0
+    for (i = 0; i < arr.length; i++) {
+      const row = ('' + arr[i]).split(',')
+      if (row.length < 5) continue
+      out[out.length] = row
+    }
+    if (out.length < 2) return null
+    return out
+  }
+
   function pickKline(res) {
     let raw = res
     if (raw && raw.data !== undefined && raw.data !== null) raw = raw.data
@@ -751,7 +775,9 @@
     for (i = 0; i < arr.length; i++) {
       const a = arr[i]
       if (!a || typeof a.length !== 'number' || a.length < 6) continue
-      if (layoutOk(Number(a[5]), Number(a[3]), Number(a[4]), Number(a[2]))) okA++
+      /* 实测（2026-09-18）data.gateapi.io v2 candlestick 行格式：
+         [毫秒时间戳, 成交量, 开, 高, 低, 收] */
+      if (layoutOk(Number(a[2]), Number(a[3]), Number(a[4]), Number(a[5]))) okA++
       if (layoutOk(Number(a[1]), Number(a[2]), Number(a[3]), Number(a[4]))) okB++
     }
     const useB = okB > okA
@@ -763,8 +789,8 @@
     for (i = 0; i < arr.length; i++) {
       const a = arr[i]
       if (!a || typeof a.length !== 'number' || a.length < 6) continue
-      const cc = Number(useB ? a[4] : a[2])
-      const oo = Number(useB ? a[1] : a[5])
+      const oo = Number(useB ? a[1] : a[2])
+      const cc = Number(useB ? a[4] : a[5])
       const hh = Number(useB ? a[2] : a[3])
       const ll = Number(useB ? a[3] : a[4])
       if (!layoutOk(oo, hh, ll, cc)) continue
@@ -786,7 +812,128 @@
     return { o: o, h: h, l: l, c: c, t: t, st: stv }
   }
 
+  /* Gate v4 candlesticks：
+     [秒时间戳, 计价成交量, 收, 高, 低, 开, 基础成交量, 是否完结] */
+  function parseGateV4(res) {
+    let raw = res
+    if (raw && raw.data !== undefined && raw.data !== null) raw = raw.data
+    const j = toObj(raw)
+    if (!j) return null
+    let arr = j
+    if (arr && arr.data && typeof arr.data.length === 'number') arr = arr.data
+    if (!arr || typeof arr.length !== 'number' || arr.length < 2) return null
+    const o = []
+    const h = []
+    const l = []
+    const c = []
+    const t = []
+    let i = 0
+    for (i = 0; i < arr.length; i++) {
+      const a = arr[i]
+      if (!a || typeof a.length !== 'number' || a.length < 6) continue
+      const tt = Number(a[0])
+      const cc = Number(a[2])
+      const hh = Number(a[3])
+      const ll = Number(a[4])
+      const oo = Number(a[5])
+      if (!(tt > 0)) continue
+      if (!layoutOk(oo, hh, ll, cc)) continue
+      o[o.length] = oo
+      h[h.length] = hh
+      l[l.length] = ll
+      c[c.length] = cc
+      t[t.length] = tt > 100000000000 ? tt : tt * 1000
+    }
+    if (c.length < 2) return null
+    let stv = 300000
+    if (t.length > 1) {
+      const dv = t[1] - t[0]
+      if (dv > 0) stv = dv
+    }
+    return { o: o, h: h, l: l, c: c, t: t, st: stv }
+  }
+
   /* CoinEx 备用：{"code":0,"data":[{open,high,low,close,created_at}]} */
+  /* 币安 klines：[[毫秒开盘时间, 开, 高, 低, 收, 量, ...], ...]（升序） */
+  function parseBinKline(res) {
+    let raw = res
+    if (raw && raw.data !== undefined && raw.data !== null) raw = raw.data
+    const j = toObj(raw)
+    if (!j) return null
+    let arr = j
+    if (arr && arr.data && typeof arr.data.length === 'number') arr = arr.data
+    if (!arr || typeof arr.length !== 'number' || arr.length < 2) return null
+    const o = []
+    const h = []
+    const l = []
+    const c = []
+    const t = []
+    let i = 0
+    for (i = 0; i < arr.length; i++) {
+      const a = arr[i]
+      if (!a || typeof a.length !== 'number' || a.length < 6) continue
+      const tt = Number(a[0])
+      const oo = Number(a[1])
+      const hh = Number(a[2])
+      const ll = Number(a[3])
+      const cc = Number(a[4])
+      if (!(tt > 0)) continue
+      if (!layoutOk(oo, hh, ll, cc)) continue
+      o[o.length] = oo
+      h[h.length] = hh
+      l[l.length] = ll
+      c[c.length] = cc
+      t[t.length] = tt > 100000000000 ? tt : tt * 1000
+    }
+    if (c.length < 2) return null
+    let stv = 60000
+    if (t.length > 1) {
+      const dv = t[1] - t[0]
+      if (dv > 0) stv = dv
+    }
+    return { o: o, h: h, l: l, c: c, t: t, st: stv }
+  }
+
+  /* OKX candles：{"data":[["ts","开","高","低","收","量",...]]}（倒序，最新在前） */
+  function parseOkxKline(res) {
+    let raw = res
+    if (raw && raw.data !== undefined && raw.data !== null) raw = raw.data
+    const j = toObj(raw)
+    if (!j) return null
+    let arr = j
+    if (arr && arr.data && typeof arr.data.length === 'number') arr = arr.data
+    if (!arr || typeof arr.length !== 'number' || arr.length < 2) return null
+    const o = []
+    const h = []
+    const l = []
+    const c = []
+    const t = []
+    let i = 0
+    for (i = arr.length - 1; i >= 0; i--) {
+      const a = arr[i]
+      if (!a || typeof a.length !== 'number' || a.length < 6) continue
+      const tt = Number(a[0])
+      const oo = Number(a[1])
+      const hh = Number(a[2])
+      const ll = Number(a[3])
+      const cc = Number(a[4])
+      if (!(tt > 0)) continue
+      if (!layoutOk(oo, hh, ll, cc)) continue
+      o[o.length] = oo
+      h[h.length] = hh
+      l[l.length] = ll
+      c[c.length] = cc
+      t[t.length] = tt > 100000000000 ? tt : tt * 1000
+    }
+    if (c.length < 2) return null
+    let stv = 60000
+    if (t.length > 1) {
+      const dv = t[1] - t[0]
+      if (dv > 0) stv = dv
+    }
+    return { o: o, h: h, l: l, c: c, t: t, st: stv }
+  }
+
   function parseCoinexLive(res) {
     let raw = res
     if (raw && raw.data !== undefined && raw.data !== null) raw = raw.data
@@ -1110,7 +1257,6 @@
         header: { Host: HOST },
       }
     }
-    list[list.length] = { tag: '域名', url: GATE_HTTPS, header: null }
     return list
   }
 
@@ -1203,10 +1349,16 @@
         liveRound: 0,
         liveT0: 0,
         liveGap: 5000,
+        liveStartTs: 0,
+        curBucket: 0,
+        histBarMs: 0,
         lastPNum: 0,
         histSeries: null,
         histTag: '',
         histPending: false,
+        histPts: 0,
+        probeDone: 0,
+        liveTried: 0,
         rawSnip: '',
         kStatus: '日K:点上方按钮加载',
         kStatusColor: '#6B7280',
@@ -1219,7 +1371,7 @@
         intervalSec: 5,
         itvLabel: '5秒',
         showDebug: false,
-        vibTest: '振动自检：点右侧按钮试一下',
+        appVer: APP_VER,
         crownText: '未响应（试试旋转表冠）',
         crownAcc: 0,
         crownT: 0,
@@ -1283,16 +1435,12 @@
           this.liveNote = '历史:本地上次曲线 ' + this.samples.length + '点，正在更新'
         }
       } catch (e0) {}
-      /* 错峰 1.5s：让行情先落地，避免两路请求互抢网络 */
+      /* 抢跑策略：开机就发历史（此时行情还没开始，独占连接）
+         行情延后 2.5 秒启动（见 startTimer 的 firstTickAt） */
+      this.liveNext = 0
       try {
-        const self0 = this
-        this.liveNext = nowMs() + 4000
-        this.liveT0 = setTimeout(function () {
-          self0.loadLive()
-        }, 1500)
-      } catch (e01) {
         this.loadLive()
-      }
+      } catch (eL0) {}
       this.startTimer()
       this.refresh()
     },
@@ -1360,28 +1508,35 @@
       this.liveRound = (this.liveRound || 0) + 1
       this.rawSnip = ''
       this.liveLog = 'R' + this.liveRound
-      /* 腾讯：每轮必发（保命主力） */
+      this.liveStartTs = nowMs()
+      this.liveTried = (this.liveTried || 0) + 1
+      /* 真 BTC 源优先（不用缩放、直接是 BTC 价）：Gate蜡烛 + 东财 BTC */
       const list = []
       const rr = this.liveRound
-      list[list.length] = { tag: '腾讯分时', url: TENCENT_MIN, header: null, kind: 4 }
-      /* 再搭一发小包（2.8KB）备用源：Gate 蜡烛 = 真 BTC 价，不用缩放 */
-      const ipx = rr % 2 === 0 ? HARD_IPS[1] : HARD_IPS[0]
-      if (rr % 5 === 0) {
-        list[list.length] = { tag: '东财BTC', url: EM_BTC_1M, header: UA_H, kind: 3 }
-      } else {
-        list[list.length] = {
-          tag: 'Gate蜡烛',
-          url: 'http://' + ipx + GATE_V2_KLINE,
-          header: { Host: HOST },
-          kind: 2,
-        }
+      /* 腾讯分时（港股代理，需缩放锚定）：延迟 2.5s 兜底 */
+      /* 主路：Gate v4 5 分钟 K 线（域名 HTTPS + IP HTTPS 双发）→ 4 小时窗口 */
+      /* 稳字版：主路只走「已验证可通」的 Gate 老接口（HTTP + IP + Host），一次只发 1 个请求 */
+      list[list.length] = {
+        tag: 'Gate蜡烛',
+        url: 'http://' + HARD_IPS[0] + GATE_V2_KLINE,
+        header: { Host: HOST },
+        kind: 2,
       }
       this.liveTry(0, list)
     },
     /* 补历史节拍器：与行情刷新解耦，每 LIVE_RETRY 毫秒自己试一轮 */
     maybeLive() {
       try {
-        if (this.histOn || this.liveBusy || this.histPending) return
+        if (this.histOn || this.histPending) return
+        /* 最多试 2 次：再抢也只是白忙（会和行情抢连接） */
+        if ((this.liveTried || 0) >= 2) return
+        /* 看门狗：补历史请求卡死（既不回调也不超时）→ 强制解锁重试 */
+        if (this.liveBusy) {
+          if (this.liveStartTs > 0 && nowMs() - this.liveStartTs < 15000) return
+          this.liveBusy = false
+          this.liveLog = addLog(this.liveLog, '看门狗解锁')
+          if (!this.histOn) this.liveNote = '历史:卡死重试 ' + this.liveLog
+        }
         const nowT = nowMs()
         if (!this.liveNext || nowT >= this.liveNext) {
           this.liveNext = nowT + this.liveGap
@@ -1409,6 +1564,7 @@
         if (done >= total && !got) {
           self.liveBusy = false
           if (!self.histOn) self.liveNote = '历史:重试中 ' + self.liveLog
+          self.rawSnip = ('历' + self.liveLog).slice(0, 60)
         }
       }
       let i = 0
@@ -1437,15 +1593,21 @@
           let k = null
           try {
             k =
-              a.kind === 3
-                ? parseEmKline(res)
-                : a.kind === 4
-                  ? parseTencentMin(res)
-                  : a.kind === 2
-                    ? parseGateV2(res)
-                    : a.kind === 0
-                      ? parseGateLive(res)
-                      : parseCoinexLive(res)
+              a.kind === 6
+                ? parseBinKline(res)
+                : a.kind === 7
+                  ? parseOkxKline(res)
+                  : a.kind === 5
+                    ? parseGateV4(res)
+                    : a.kind === 3
+                      ? parseEmKline(res)
+                      : a.kind === 4
+                        ? parseTencentMin(res)
+                        : a.kind === 2
+                          ? parseGateV2(res)
+                          : a.kind === 0
+                            ? parseGateLive(res)
+                            : parseCoinexLive(res)
           } catch (e) {
             k = null
           }
@@ -1508,7 +1670,7 @@
         if (!k || !k.c) return
         const n = k.c.length
         if (n < 2) return
-        const start = n > LIVE_KEEP ? n - LIVE_KEEP : 0
+        const start = n > SRC_BARS ? n - SRC_BARS : 0
         const cur = Number(this.lastPNum)
         const ref = Number(k.c[n - 1])
         if (!(cur > 0) || !(ref > 0)) {
@@ -1527,9 +1689,28 @@
           out[out.length] = Number(k.c[i]) * sc
         }
         if (out.length < 8) return
+        /* 图上再补一根“当前进行中”的蜡烛：o=h=l=c=最新价（随后行情会实时更新它） */
+        const curP = out[out.length - 1]
+        /* 先定粒度：粗粒度源（≥5 分钟/根）每根 K线只合成 1 根蜡烛 */
+        let stpH0 = BAR_MS
+        try {
+          if (k.st && Number(k.st) > 0) stpH0 = Number(k.st)
+        } catch (eHP) {}
+        this.histPts = stpH0 >= 300000 ? 4 : SAMPLE_PER
+        let qc = 0
+        for (qc = 0; qc < this.histPts; qc++) out[out.length] = curP
+        /* 记录历史粒度 + 当前所在的 K 线桶（实时蜡烛按它滚动） */
+        let stpH = BAR_MS
+        try {
+          if (k.st && Number(k.st) > 0) stpH = Number(k.st)
+        } catch (eH) {}
+        /* 每根蜡烛实际覆盖时长 = 历史粒度 × (SAMPLE_PER / 4) */
+        this.histBarMs = stpH * (this.histPts / 4)
+        this.curBucket = Math.floor(nowMs() / stpH)
         this.samples = out
         this.histPending = false
         this.histOn = true
+        this.rawSnip = ''
         this.histAt = nowMs()
         this.liveGap = 5000
         let stp = 60000
@@ -1538,7 +1719,10 @@
         } catch (e3) {}
         this.histT0 = nowMs() - (n - start - 1) * stp
         this.liveBusy = false
-        this.liveNote = '历史:ok ' + this.histTag + ' ' + (n - start) + '根'
+        let lgT = '' + (this.liveLog || '')
+        if (lgT.length > 2 && lgT.indexOf(':') > 0) lgT = ' | ' + lgT.substring(0, 64)
+        else lgT = ''
+        this.liveNote = '历史:ok ' + this.histTag + ' ' + (n - start) + '根' + lgT
         this.chartNote = this.liveNote
         if (this.isRealtime) {
           try {
@@ -1568,9 +1752,9 @@
         try {
           now = Date.now()
         } catch (e) {}
-        const NEED = 3
-        const GAP = 1100
-        const IDLE = 900
+        const NEED = 2
+        const GAP = 600
+        const IDLE = 700
         let acc = Number(this.crownAcc)
         if (acc !== acc) acc = 0
         /* 冷却期内清零累计（否则冷却一结束就连着跳） */
@@ -1586,7 +1770,7 @@
         if (d === 0) return true
         acc = acc + d
         this.crownAcc = acc
-        this.crownText = '累计 ' + acc + '/' + NEED + (d > 0 ? ' ›下一个' : ' ‹上一个')
+        this.crownText = d > 0 ? '下一个视图 ›' : '‹ 上一个'
         if (acc >= NEED) {
           this.crownAcc = 0
           this.crownT = now
@@ -1720,29 +1904,6 @@
       this.cfgSave()
       this.applyStyles()
     },
-    testVib() {
-      try {
-        const m = getVib()
-        if (!m) {
-          this.vibTest = '振动自检：模块不可用(' + tOf(m) + ')'
-          return
-        }
-        if (typeof m.getSystemDefaultMode === 'function') {
-          if (m.getSystemDefaultMode() === 0) {
-            this.vibTest = '振动自检：系统振动已关闭'
-            return
-          }
-        }
-        if (typeof m.vibrate !== 'function') {
-          this.vibTest = '振动自检：没有 vibrate 方法'
-          return
-        }
-        m.vibrate({ mode: 'long' })
-        this.vibTest = '振动自检：已发出，感觉到了吗？'
-      } catch (e) {
-        this.vibTest = '振动自检：异常 ' + msgOf(e)
-      }
-    },
     restoreDefaults() {
       this.vibrateOn = true
       this.scheme = 0
@@ -1840,12 +2001,15 @@
       try {
         if (typeof setInterval !== 'function') return
         this.lastTick = nowMs()
+        /* 首次行情延后 2.5 秒：让补历史请求先跑完，避免抢连接 */
+        self.firstTickAt = nowMs() + 2500
         /* 1 秒心跳：行情按 intervalSec 刷，补历史固定每 5 秒试一轮 */
         this.timerId = setInterval(function () {
           try {
             self.maybeLive()
           } catch (e1) {}
           const nw = nowMs()
+          if (self.firstTickAt && nw < self.firstTickAt) return
           const gap = nw - self.lastTick
           if (gap >= ms || gap < 0) {
             self.lastTick = nw
@@ -1868,6 +2032,8 @@
     /* ================= 实时行情 ================= */
     refresh() {
       const now = nowMs()
+      /* 启动前 2.5 秒不发行情：让补历史请求先独占连接 */
+      if (this.firstTickAt && now && now < this.firstTickAt) return
       if (this.busy) {
         if (now && now - this.busyAt < 20000) return
       }
@@ -1974,19 +2140,42 @@
           self.hasData = true
 
           step = 12
+          /* 按 K 线桶聚合：同一根内实时更新 h/l/c，跨桶才新增一根（6 小时跨度不缩水） */
           const old = self.samples ? self.samples : []
+          /* 有历史：按历史粒度；没历史：1 分钟一根（48 分钟自己攒满一屏） */
+          const noHist = !(self.histBarMs > 0)
+          /* 自攒时 2.5 分钟/根 → 48 根 = 2 小时窗口（与用户需求一致） */
+          const barMs = noHist ? 150000 : self.histBarMs
+          /* 每根蜡烛合成点数（细粒度 10 点；粗粒度 4 点；自攒 30 点 = 2.5 分钟） */
+          const PT = noHist ? 30 : self.histPts > 0 ? self.histPts : SAMPLE_PER
+          const bkt = Math.floor(nowMs() / barMs)
           const out = []
           let j = 0
-          if (old.length >= MAX_SAMPLES) {
-            for (j = 1; j < old.length; j++) out[j - 1] = old[j]
+          for (j = 0; j < old.length; j++) out[j] = old[j]
+          if (self.curBucket !== bkt) {
+            self.curBucket = bkt
+            const keep = SLOT_K * PT
+            while (out.length > keep) out.shift()
+            let qn = 0
+            for (qn = 0; qn < PT; qn++) out[out.length] = t.last
           } else {
-            for (j = 0; j < old.length; j++) out[j] = old[j]
+            const m = out.length
+            if (m >= PT) {
+              let hh = out[m - PT + 1]
+              let ll = out[m - PT + 2]
+              if (t.last > hh) hh = t.last
+              if (t.last < ll) ll = t.last
+              out[m - PT + 1] = hh
+              out[m - PT + 2] = ll
+              out[m - 1] = t.last
+            } else {
+              out[out.length] = t.last
+            }
           }
-          out[out.length] = t.last
           self.samples = out
 
           /* 每完成一根分时蜡烛（约 1 分钟）落盘一次，重启后图还在 */
-          if (Math.floor(out.length / SAMPLE_PER) > Math.floor(old.length / SAMPLE_PER)) {
+          if (Math.floor(out.length / PT) > Math.floor(old.length / PT)) {
             try {
               const st = getSto()
               if (st && typeof st.set === 'function') {
@@ -2026,7 +2215,26 @@
 
           step = 15
           self.statusText =
-            'OK · ' + self.updatedAt + ' · ' + self.intervalSec + '秒自动刷新' + tail
+            'OK · ' +
+            self.updatedAt +
+            ' · ' +
+            self.intervalSec +
+            '秒自动刷新' +
+            tail +
+            ' · ' +
+            (self.histOn ? '历√' : '历' + String(self.liveLog || '-').slice(0, 16))
+          /* 历史补图看门狗（由行情节拍驱动，不依赖 setTimeout） */
+          try {
+            if (
+              self.liveBusy &&
+              self.liveStartTs > 0 &&
+              nowMs() - self.liveStartTs > HIST_TIMEOUT + 2000
+            ) {
+              self.liveBusy = false
+              self.liveLog = addLog(self.liveLog, '看门狗')
+              if (!self.histOn) self.liveNote = '历史:卡死重试 ' + self.liveLog
+            }
+          } catch (eW) {}
           self.statusColor = '#00C853'
         } catch (e) {
           self.statusText = '更新异常@' + step + ' ' + msgOf(e)
@@ -2096,8 +2304,15 @@
         ctx.clearRect(0, 0, RW, RH)
       } catch (e) {}
 
-      /* 采样 → 蜡烛：默认 4 点 1 根（≈1分钟）；数据少时自动加密，图上不留空 */
-      const PER = n < 16 ? 1 : n < 48 ? 2 : SAMPLE_PER
+      /* 采样 → 蜡烛：每根蜡烛点数必须与当前粒度一致
+         （有历史 = histPts（粗粒度4点/根）；自攒 = 12 点 = 1 分钟/根）
+         数据太少时退化为 1 点 1 根，让图尽快“长”出来 */
+      let PER = SAMPLE_PER
+      try {
+        PER = this.histPts > 0 ? this.histPts : 12
+      } catch (eP0) {
+        PER = SAMPLE_PER
+      }
       const bars = Math.floor(n / PER)
       if (bars < 1 || !base || base <= 0) {
         this.chartNote = '图:采样中 ' + n + '/' + PER
@@ -2106,18 +2321,31 @@
       }
 
       try {
-        const padX = 8
+        const padX = 14
         const padL = 46
         const padY = 10
         const cnt = bars < SLOT_K ? bars : SLOT_K
+        /* 固定槽位：始终按 SLOT_K 格排布，数据不足时左侧留空(NaN)
+           目的：蜡烛宽度与位置恒定，图从右往左平滑滚动，不再整体缩放 */
+        /* 数据不足 40 根：用 cnt 槽（铺满、图会“生长”，看得出刷新）
+           满 40 根后：固定 40 槽滚动（宽度与位置恒定，不被挤压） */
+        const slots = cnt < SLOT_K ? cnt : SLOT_K
+        const gapN = slots - cnt
         const kO = []
         const kC = []
         const kH = []
         const kL = []
         let i = 0
         let j = 0
-        for (i = 0; i < cnt; i++) {
-          const s = (bars - cnt + i) * PER
+        for (i = 0; i < slots; i++) {
+          if (i < gapN) {
+            kO[i] = NaN
+            kC[i] = NaN
+            kH[i] = NaN
+            kL[i] = NaN
+            continue
+          }
+          const s = (bars - cnt + (i - gapN)) * PER
           const oo = data[s]
           const cc = data[s + PER - 1]
           let hh = data[s]
@@ -2127,15 +2355,15 @@
             if (v > hh) hh = v
             if (v < ll) ll = v
           }
-          kO[kO.length] = oo
-          kC[kC.length] = cc
-          kH[kH.length] = hh
-          kL[kL.length] = ll
+          kO[i] = oo
+          kC[i] = cc
+          kH[i] = hh
+          kL[i] = ll
         }
 
-        let hiK = kH[0]
-        let loK = kL[0]
-        for (i = 1; i < cnt; i++) {
+        let hiK = kH[gapN]
+        let loK = kL[gapN]
+        for (i = gapN + 1; i < slots; i++) {
           if (kH[i] > hiK) hiK = kH[i]
           if (kL[i] < loK) loK = kL[i]
         }
@@ -2155,9 +2383,10 @@
           return padY + ((yTop - v) / (yTop - yBot)) * innerH
         }
 
-        const cw = (RW - padL - padX) / SLOT_K
+        const cw = (RW - padL - padX) / slots
         let bw = cw * 0.62
         if (bw < 2) bw = 2
+        if (bw > 18) bw = 18
 
         /* 0% 基准灰线（基准价 = 24 小时前价格） */
         const y0 = yOf(base)
@@ -2192,9 +2421,9 @@
           }
         } catch (eT) {}
 
-        /* 蜡烛（和日K同款画法） */
-        for (i = 0; i < cnt; i++) {
-          const x = padL + (RW - padL - padX) - (cnt - i) * cw + (cw - bw) / 2
+        /* 蜡烛（和日K同款画法，固定槽位滚动） */
+        for (i = gapN; i < slots; i++) {
+          const x = padL + i * cw + (cw - bw) / 2
           const yHh = yOf(kH[i])
           const yLl = yOf(kL[i])
           const yOo = yOf(kO[i])
@@ -2223,12 +2452,12 @@
           ctx.lineWidth = 2
           ctx.beginPath()
           let first = true
-          for (i = 6; i < cnt; i++) {
+          for (i = gapN + 6; i < slots; i++) {
             let sum = 0
             let k = 0
             for (k = i - 6; k <= i; k++) sum += kC[k]
             const avg = sum / 7
-            const x = padL + (RW - padL - padX) - (cnt - i) * cw - cw / 2
+            const x = padL + i * cw + cw / 2
             const y = yOf(avg)
             if (first) {
               ctx.moveTo(x, y)
@@ -2242,9 +2471,15 @@
 
         /* 时间刻度（底部）+ 竖向网格 */
         const endMs = nowMs()
-        const spanMs = cnt * (PER * this.intervalSec) * 1000
-        let startMs = endMs - spanMs
-        if (this.histOn && this.histT0 > 0) startMs = this.histT0
+        /* 每根蜡烛的真实时长：历史粒度（Gate = 30 分钟）或兜底 30 分钟 */
+        let barMs = 150000
+        try {
+          if (this.histBarMs > 0) barMs = this.histBarMs
+          else if (this.histSeries && Number(this.histSeries.st) > 0)
+            barMs = Number(this.histSeries.st)
+        } catch (eS1) {}
+        const spanMs = cnt * barMs
+        const startMs = endMs - spanMs
         const tA = hhmm(startMs)
         const tM = hhmm((startMs + endMs) / 2)
         const tB = hhmm(endMs)
@@ -2261,15 +2496,15 @@
         ctx.textAlign = 'right'
         ctx.fillText(tB, RW - padX, RH - 5)
 
-        const lastP = kC[cnt - 1]
+        const lastP = kC[slots - 1]
         this.chartInfo =
-          '今起 ' +
+          '24h前 ' +
           signedPct(((lastP - base) / base) * 100) +
           ' 高 ' +
           signedPct(((hiK - base) / base) * 100) +
           ' 低 ' +
           signedPct(((loK - base) / base) * 100)
-        this.chartNote = '图:ok ' + cnt + '根 基准' + fixed2(base)
+        this.chartNote = (this.histOn ? '图:ok ' : '积累中 ') + cnt + '/48 基准' + fixed2(base)
       } catch (e) {
         this.chartNote = '图:绘制异常 ' + msgOf(e)
       }
@@ -2297,7 +2532,7 @@
         wd = 0
       }
 
-      const opts = { url: KLINE_URL, method: 'GET' }
+      const opts = { url: KLINE_URL, method: 'GET', header: UA_H }
 
       opts.success = function (res) {
         if (settled) return
@@ -2310,7 +2545,15 @@
         let step = 0
         try {
           step = 1
-          const arr = pickKline(res)
+          let arr = null
+          try {
+            arr = pickKline(res)
+          } catch (ePK) {}
+          if (!arr) {
+            try {
+              arr = pickEmDay(res)
+            } catch (ePD) {}
+          }
           if (!arr) {
             self.kStatus = '日K:解析失败'
             self.kStatusColor = '#FF4D4F'

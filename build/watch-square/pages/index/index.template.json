@@ -919,25 +919,6 @@
               "type": "input",
               "attr": {
                 "type": "button",
-                "value": "测试振动"
-              },
-              "bind": 1,
-              "events": {
-                "click": "testVib"
-              },
-              "inlineStyle": {
-                "width": "172px",
-                "height": "42px",
-                "borderRadius": "21px",
-                "fontSize": "18px",
-                "color": "#ffffff",
-                "backgroundColor": "#1f2937"
-              }
-            },
-            {
-              "type": "input",
-              "attr": {
-                "type": "button",
                 "value": "恢复默认"
               },
               "bind": 1,
@@ -945,7 +926,7 @@
                 "click": "restoreDefaults"
               },
               "inlineStyle": {
-                "width": "172px",
+                "width": "360px",
                 "height": "42px",
                 "borderRadius": "21px",
                 "fontSize": "18px",
@@ -958,19 +939,6 @@
         {
           "type": "text",
           "attr": {
-            "$value": "vibTest"
-          },
-          "bind": 1,
-          "inlineStyle": {
-            "width": "360px",
-            "fontSize": "12px",
-            "color": "#f59e0b",
-            "marginTop": "8px"
-          }
-        },
-        {
-          "type": "text",
-          "attr": {
             "$value": "function () { return '' + '表冠：' + this.crownText; }"
           },
           "bind": 1,
@@ -979,6 +947,19 @@
             "fontSize": "12px",
             "color": "#60a5fa",
             "marginTop": "4px"
+          }
+        },
+        {
+          "type": "text",
+          "attr": {
+            "$value": "function () { return '' + '版本 ' + this.appVer; }"
+          },
+          "bind": 1,
+          "inlineStyle": {
+            "width": "360px",
+            "fontSize": "13px",
+            "color": "#6b7280",
+            "marginTop": "6px"
           }
         },
         {

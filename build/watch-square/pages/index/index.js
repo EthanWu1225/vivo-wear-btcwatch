@@ -9,26 +9,24 @@ const vibrator = $app_require$("@app-module/system.vibrator");
 const storage = $app_require$("@app-module/system.storage");
 const HOST = "data.gateapi.io";
 const GATE_PATH = "/api2/1/ticker/btc_usdt";
-const GATE_HTTPS = "https://data.gateapi.io/api2/1/ticker/btc_usdt";
-const HARD_IPS = ["13.114.117.54", "13.159.219.98"];
+const HARD_IPS = ["13.114.117.54"];
 const KLINE_URL = "https://web.ifzq.gtimg.cn/appstock/app/hkfqkline/get?param=hk03066,day,,,320,qfq";
 const KLINE_KEY = "hk03066";
 const KLINE_N = 40;
 const REQ_TIMEOUT = 4500;
 const REQ_TIMEOUT_K = 9e3;
-const HIST_TIMEOUT = 12e3;
-const EM_BTC_1M = "http://push2his.eastmoney.com/api/qt/stock/kline/get?secid=107.BTC&klt=5&fqt=1&lmt=40&end=20500101&fields1=f1,f2,f3,f4&fields2=f51,f52,f53,f54,f55,f56";
-const TENCENT_MIN = "https://web.ifzq.gtimg.cn/appstock/app/minute/query?code=hk03066";
+const HIST_TIMEOUT = 6e3;
 const ITV_STEPS = [5, 10, 15, 30, 60];
-const MAX_SAMPLES = 480;
-const SAMPLE_PER = 4;
-const SLOT_K = 40;
+const SAMPLE_PER = 10;
+const SLOT_K = 48;
 const SMP_KEY = "btcwatch_samples";
 const GATE_V2_KLINE = "/api2/1/candlestick/btc_usdt?group_sec=300&range_hour=24";
-const LIVE_KEEP = 40;
+const SRC_BARS = 120;
+const BAR_MS = 18e5;
 const LABEL_H = 18;
-const CROWN_INVERT = false;
+const CROWN_INVERT = true;
 const CFG_KEY = "btcwatch_cfg";
+const APP_VER = "v1.1.21";
 const UA_H = {
   "User-Agent": "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36"
 };
@@ -195,6 +193,25 @@ function pickTicker(res) {
     vol: safeNum(vol)
   };
 }
+function pickEmDay(res) {
+  let raw = res;
+  if (raw && raw.data !== void 0 && raw.data !== null) raw = raw.data;
+  const j = toObj(raw);
+  if (!j) return null;
+  const root = j.data;
+  if (!root) return null;
+  const arr = root.klines;
+  if (!arr || typeof arr.length !== "number" || arr.length < 2) return null;
+  const out = [];
+  let i = 0;
+  for (i = 0; i < arr.length; i++) {
+    const row = ("" + arr[i]).split(",");
+    if (row.length < 5) continue;
+    out[out.length] = row;
+  }
+  if (out.length < 2) return null;
+  return out;
+}
 function pickKline(res) {
   let raw = res;
   if (raw && raw.data !== void 0 && raw.data !== null) raw = raw.data;
@@ -289,7 +306,7 @@ function parseGateV2(res) {
   for (i = 0; i < arr.length; i++) {
     const a = arr[i];
     if (!a || typeof a.length !== "number" || a.length < 6) continue;
-    if (layoutOk(Number(a[5]), Number(a[3]), Number(a[4]), Number(a[2]))) okA++;
+    if (layoutOk(Number(a[2]), Number(a[3]), Number(a[4]), Number(a[5]))) okA++;
     if (layoutOk(Number(a[1]), Number(a[2]), Number(a[3]), Number(a[4]))) okB++;
   }
   const useB = okB > okA;
@@ -301,8 +318,8 @@ function parseGateV2(res) {
   for (i = 0; i < arr.length; i++) {
     const a = arr[i];
     if (!a || typeof a.length !== "number" || a.length < 6) continue;
-    const cc = Number(useB ? a[4] : a[2]);
-    const oo = Number(useB ? a[1] : a[5]);
+    const oo = Number(useB ? a[1] : a[2]);
+    const cc = Number(useB ? a[4] : a[5]);
     const hh = Number(useB ? a[2] : a[3]);
     const ll = Number(useB ? a[3] : a[4]);
     if (!layoutOk(oo, hh, ll, cc)) continue;
@@ -317,6 +334,141 @@ function parseGateV2(res) {
     for (i = 0; i < t.length; i++) t[i] = t[i] * 1e3;
   }
   let stv = 18e5;
+  if (t.length > 1) {
+    const dv = t[1] - t[0];
+    if (dv > 0) stv = dv;
+  }
+  return {
+    o,
+    h,
+    l,
+    c,
+    t,
+    st: stv
+  };
+}
+function parseGateV4(res) {
+  let raw = res;
+  if (raw && raw.data !== void 0 && raw.data !== null) raw = raw.data;
+  const j = toObj(raw);
+  if (!j) return null;
+  let arr = j;
+  if (arr && arr.data && typeof arr.data.length === "number") arr = arr.data;
+  if (!arr || typeof arr.length !== "number" || arr.length < 2) return null;
+  const o = [];
+  const h = [];
+  const l = [];
+  const c = [];
+  const t = [];
+  let i = 0;
+  for (i = 0; i < arr.length; i++) {
+    const a = arr[i];
+    if (!a || typeof a.length !== "number" || a.length < 6) continue;
+    const tt = Number(a[0]);
+    const cc = Number(a[2]);
+    const hh = Number(a[3]);
+    const ll = Number(a[4]);
+    const oo = Number(a[5]);
+    if (!(tt > 0)) continue;
+    if (!layoutOk(oo, hh, ll, cc)) continue;
+    o[o.length] = oo;
+    h[h.length] = hh;
+    l[l.length] = ll;
+    c[c.length] = cc;
+    t[t.length] = tt > 1e11 ? tt : tt * 1e3;
+  }
+  if (c.length < 2) return null;
+  let stv = 3e5;
+  if (t.length > 1) {
+    const dv = t[1] - t[0];
+    if (dv > 0) stv = dv;
+  }
+  return {
+    o,
+    h,
+    l,
+    c,
+    t,
+    st: stv
+  };
+}
+function parseBinKline(res) {
+  let raw = res;
+  if (raw && raw.data !== void 0 && raw.data !== null) raw = raw.data;
+  const j = toObj(raw);
+  if (!j) return null;
+  let arr = j;
+  if (arr && arr.data && typeof arr.data.length === "number") arr = arr.data;
+  if (!arr || typeof arr.length !== "number" || arr.length < 2) return null;
+  const o = [];
+  const h = [];
+  const l = [];
+  const c = [];
+  const t = [];
+  let i = 0;
+  for (i = 0; i < arr.length; i++) {
+    const a = arr[i];
+    if (!a || typeof a.length !== "number" || a.length < 6) continue;
+    const tt = Number(a[0]);
+    const oo = Number(a[1]);
+    const hh = Number(a[2]);
+    const ll = Number(a[3]);
+    const cc = Number(a[4]);
+    if (!(tt > 0)) continue;
+    if (!layoutOk(oo, hh, ll, cc)) continue;
+    o[o.length] = oo;
+    h[h.length] = hh;
+    l[l.length] = ll;
+    c[c.length] = cc;
+    t[t.length] = tt > 1e11 ? tt : tt * 1e3;
+  }
+  if (c.length < 2) return null;
+  let stv = 6e4;
+  if (t.length > 1) {
+    const dv = t[1] - t[0];
+    if (dv > 0) stv = dv;
+  }
+  return {
+    o,
+    h,
+    l,
+    c,
+    t,
+    st: stv
+  };
+}
+function parseOkxKline(res) {
+  let raw = res;
+  if (raw && raw.data !== void 0 && raw.data !== null) raw = raw.data;
+  const j = toObj(raw);
+  if (!j) return null;
+  let arr = j;
+  if (arr && arr.data && typeof arr.data.length === "number") arr = arr.data;
+  if (!arr || typeof arr.length !== "number" || arr.length < 2) return null;
+  const o = [];
+  const h = [];
+  const l = [];
+  const c = [];
+  const t = [];
+  let i = 0;
+  for (i = arr.length - 1; i >= 0; i--) {
+    const a = arr[i];
+    if (!a || typeof a.length !== "number" || a.length < 6) continue;
+    const tt = Number(a[0]);
+    const oo = Number(a[1]);
+    const hh = Number(a[2]);
+    const ll = Number(a[3]);
+    const cc = Number(a[4]);
+    if (!(tt > 0)) continue;
+    if (!layoutOk(oo, hh, ll, cc)) continue;
+    o[o.length] = oo;
+    h[h.length] = hh;
+    l[l.length] = ll;
+    c[c.length] = cc;
+    t[t.length] = tt > 1e11 ? tt : tt * 1e3;
+  }
+  if (c.length < 2) return null;
+  let stv = 6e4;
   if (t.length > 1) {
     const dv = t[1] - t[0];
     if (dv > 0) stv = dv;
@@ -379,11 +531,6 @@ function buildAttempts() {
       }
     };
   }
-  list[list.length] = {
-    tag: "域名",
-    url: GATE_HTTPS,
-    header: null
-  };
   return list;
 }
 function joinArr(a, sep) {
@@ -470,10 +617,16 @@ const $app_script$1552441465 = {
       liveRound: 0,
       liveT0: 0,
       liveGap: 5e3,
+      liveStartTs: 0,
+      curBucket: 0,
+      histBarMs: 0,
       lastPNum: 0,
       histSeries: null,
       histTag: "",
       histPending: false,
+      histPts: 0,
+      probeDone: 0,
+      liveTried: 0,
       rawSnip: "",
       kStatus: "日K:点上方按钮加载",
       kStatusColor: "#6B7280",
@@ -484,7 +637,7 @@ const $app_script$1552441465 = {
       intervalSec: 5,
       itvLabel: "5秒",
       showDebug: false,
-      vibTest: "振动自检：点右侧按钮试一下",
+      appVer: APP_VER,
       crownText: "未响应（试试旋转表冠）",
       crownAcc: 0,
       crownT: 0,
@@ -532,14 +685,10 @@ const $app_script$1552441465 = {
       }
     } catch (e0) {
     }
+    this.liveNext = 0;
     try {
-      const self0 = this;
-      this.liveNext = nowMs() + 4e3;
-      this.liveT0 = setTimeout(function() {
-        self0.loadLive();
-      }, 1500);
-    } catch (e01) {
       this.loadLive();
+    } catch (eL0) {
     }
     this.startTimer();
     this.refresh();
@@ -607,37 +756,30 @@ const $app_script$1552441465 = {
     this.liveRound = (this.liveRound || 0) + 1;
     this.rawSnip = "";
     this.liveLog = "R" + this.liveRound;
+    this.liveStartTs = nowMs();
+    this.liveTried = (this.liveTried || 0) + 1;
     const list = [];
-    const rr = this.liveRound;
+    this.liveRound;
     list[list.length] = {
-      tag: "腾讯分时",
-      url: TENCENT_MIN,
-      header: null,
-      kind: 4
+      tag: "Gate蜡烛",
+      url: "http://" + HARD_IPS[0] + GATE_V2_KLINE,
+      header: {
+        Host: HOST
+      },
+      kind: 2
     };
-    const ipx = rr % 2 === 0 ? HARD_IPS[1] : HARD_IPS[0];
-    if (rr % 5 === 0) {
-      list[list.length] = {
-        tag: "东财BTC",
-        url: EM_BTC_1M,
-        header: UA_H,
-        kind: 3
-      };
-    } else {
-      list[list.length] = {
-        tag: "Gate蜡烛",
-        url: "http://" + ipx + GATE_V2_KLINE,
-        header: {
-          Host: HOST
-        },
-        kind: 2
-      };
-    }
     this.liveTry(0, list);
   },
   maybeLive() {
     try {
-      if (this.histOn || this.liveBusy || this.histPending) return;
+      if (this.histOn || this.histPending) return;
+      if ((this.liveTried || 0) >= 2) return;
+      if (this.liveBusy) {
+        if (this.liveStartTs > 0 && nowMs() - this.liveStartTs < 15e3) return;
+        this.liveBusy = false;
+        this.liveLog = addLog(this.liveLog, "看门狗解锁");
+        if (!this.histOn) this.liveNote = "历史:卡死重试 " + this.liveLog;
+      }
       const nowT = nowMs();
       if (!this.liveNext || nowT >= this.liveNext) {
         this.liveNext = nowT + this.liveGap;
@@ -664,6 +806,7 @@ const $app_script$1552441465 = {
       if (done >= total && !got) {
         self.liveBusy = false;
         if (!self.histOn) self.liveNote = "历史:重试中 " + self.liveLog;
+        self.rawSnip = ("历" + self.liveLog).slice(0, 60);
       }
     };
     let i = 0;
@@ -695,7 +838,7 @@ const $app_script$1552441465 = {
         }
         let k = null;
         try {
-          k = a.kind === 3 ? parseEmKline(res) : a.kind === 4 ? parseTencentMin(res) : a.kind === 2 ? parseGateV2(res) : a.kind === 0 ? parseGateLive(res) : parseCoinexLive(res);
+          k = a.kind === 6 ? parseBinKline(res) : a.kind === 7 ? parseOkxKline(res) : a.kind === 5 ? parseGateV4(res) : a.kind === 3 ? parseEmKline(res) : a.kind === 4 ? parseTencentMin(res) : a.kind === 2 ? parseGateV2(res) : a.kind === 0 ? parseGateLive(res) : parseCoinexLive(res);
         } catch (e) {
           k = null;
         }
@@ -755,7 +898,7 @@ const $app_script$1552441465 = {
       if (!k || !k.c) return;
       const n = k.c.length;
       if (n < 2) return;
-      const start = n > LIVE_KEEP ? n - LIVE_KEEP : 0;
+      const start = n > SRC_BARS ? n - SRC_BARS : 0;
       const cur = Number(this.lastPNum);
       const ref = Number(k.c[n - 1]);
       if (!(cur > 0) || !(ref > 0)) {
@@ -774,9 +917,26 @@ const $app_script$1552441465 = {
         out[out.length] = Number(k.c[i]) * sc;
       }
       if (out.length < 8) return;
+      const curP = out[out.length - 1];
+      let stpH0 = BAR_MS;
+      try {
+        if (k.st && Number(k.st) > 0) stpH0 = Number(k.st);
+      } catch (eHP) {
+      }
+      this.histPts = stpH0 >= 3e5 ? 4 : SAMPLE_PER;
+      let qc = 0;
+      for (qc = 0; qc < this.histPts; qc++) out[out.length] = curP;
+      let stpH = BAR_MS;
+      try {
+        if (k.st && Number(k.st) > 0) stpH = Number(k.st);
+      } catch (eH) {
+      }
+      this.histBarMs = stpH * (this.histPts / 4);
+      this.curBucket = Math.floor(nowMs() / stpH);
       this.samples = out;
       this.histPending = false;
       this.histOn = true;
+      this.rawSnip = "";
       this.histAt = nowMs();
       this.liveGap = 5e3;
       let stp = 6e4;
@@ -786,7 +946,10 @@ const $app_script$1552441465 = {
       }
       this.histT0 = nowMs() - (n - start - 1) * stp;
       this.liveBusy = false;
-      this.liveNote = "历史:ok " + this.histTag + " " + (n - start) + "根";
+      let lgT = "" + (this.liveLog || "");
+      if (lgT.length > 2 && lgT.indexOf(":") > 0) lgT = " | " + lgT.substring(0, 64);
+      else lgT = "";
+      this.liveNote = "历史:ok " + this.histTag + " " + (n - start) + "根" + lgT;
       this.chartNote = this.liveNote;
       if (this.isRealtime) {
         try {
@@ -810,15 +973,15 @@ const $app_script$1552441465 = {
         d = Number(raw);
         if (d !== d) d = 0;
       }
-      if (CROWN_INVERT) ;
+      if (CROWN_INVERT) d = -d;
       let now = 0;
       try {
         now = Date.now();
       } catch (e) {
       }
-      const NEED = 3;
-      const GAP = 1100;
-      const IDLE = 900;
+      const NEED = 2;
+      const GAP = 600;
+      const IDLE = 700;
       let acc = Number(this.crownAcc);
       if (acc !== acc) acc = 0;
       if (now && this.crownT && now - this.crownT < GAP) {
@@ -832,7 +995,7 @@ const $app_script$1552441465 = {
       if (d === 0) return true;
       acc = acc + d;
       this.crownAcc = acc;
-      this.crownText = "累计 " + acc + "/" + NEED + (d > 0 ? " ›下一个" : " ‹上一个");
+      this.crownText = d > 0 ? "下一个视图 ›" : "‹ 上一个";
       if (acc >= NEED) {
         this.crownAcc = 0;
         this.crownT = now;
@@ -969,31 +1132,6 @@ const $app_script$1552441465 = {
     this.cfgSave();
     this.applyStyles();
   },
-  testVib() {
-    try {
-      const m = getVib();
-      if (!m) {
-        this.vibTest = "振动自检：模块不可用(" + tOf(m) + ")";
-        return;
-      }
-      if (typeof m.getSystemDefaultMode === "function") {
-        if (m.getSystemDefaultMode() === 0) {
-          this.vibTest = "振动自检：系统振动已关闭";
-          return;
-        }
-      }
-      if (typeof m.vibrate !== "function") {
-        this.vibTest = "振动自检：没有 vibrate 方法";
-        return;
-      }
-      m.vibrate({
-        mode: "long"
-      });
-      this.vibTest = "振动自检：已发出，感觉到了吗？";
-    } catch (e) {
-      this.vibTest = "振动自检：异常 " + msgOf(e);
-    }
-  },
   restoreDefaults() {
     this.vibrateOn = true;
     this.scheme = 0;
@@ -1084,12 +1222,14 @@ const $app_script$1552441465 = {
     try {
       if (typeof setInterval !== "function") return;
       this.lastTick = nowMs();
+      self.firstTickAt = nowMs() + 2500;
       this.timerId = setInterval(function() {
         try {
           self.maybeLive();
         } catch (e1) {
         }
         const nw = nowMs();
+        if (self.firstTickAt && nw < self.firstTickAt) return;
         const gap = nw - self.lastTick;
         if (gap >= ms || gap < 0) {
           self.lastTick = nw;
@@ -1111,6 +1251,7 @@ const $app_script$1552441465 = {
   },
   refresh() {
     const now = nowMs();
+    if (this.firstTickAt && now && now < this.firstTickAt) return;
     if (this.busy) {
       if (now && now - this.busyAt < 2e4) return;
     }
@@ -1203,16 +1344,35 @@ const $app_script$1552441465 = {
         self.hasData = true;
         step = 12;
         const old = self.samples ? self.samples : [];
+        const noHist = !(self.histBarMs > 0);
+        const barMs = noHist ? 15e4 : self.histBarMs;
+        const PT = noHist ? 30 : self.histPts > 0 ? self.histPts : SAMPLE_PER;
+        const bkt = Math.floor(nowMs() / barMs);
         const out = [];
         let j = 0;
-        if (old.length >= MAX_SAMPLES) {
-          for (j = 1; j < old.length; j++) out[j - 1] = old[j];
+        for (j = 0; j < old.length; j++) out[j] = old[j];
+        if (self.curBucket !== bkt) {
+          self.curBucket = bkt;
+          const keep = SLOT_K * PT;
+          while (out.length > keep) out.shift();
+          let qn = 0;
+          for (qn = 0; qn < PT; qn++) out[out.length] = t.last;
         } else {
-          for (j = 0; j < old.length; j++) out[j] = old[j];
+          const m = out.length;
+          if (m >= PT) {
+            let hh = out[m - PT + 1];
+            let ll = out[m - PT + 2];
+            if (t.last > hh) hh = t.last;
+            if (t.last < ll) ll = t.last;
+            out[m - PT + 1] = hh;
+            out[m - PT + 2] = ll;
+            out[m - 1] = t.last;
+          } else {
+            out[out.length] = t.last;
+          }
         }
-        out[out.length] = t.last;
         self.samples = out;
-        if (Math.floor(out.length / SAMPLE_PER) > Math.floor(old.length / SAMPLE_PER)) {
+        if (Math.floor(out.length / PT) > Math.floor(old.length / PT)) {
           try {
             const st = getSto();
             if (st && typeof st.set === "function") {
@@ -1252,7 +1412,15 @@ const $app_script$1552441465 = {
           }
         }
         step = 15;
-        self.statusText = "OK · " + self.updatedAt + " · " + self.intervalSec + "秒自动刷新" + tail;
+        self.statusText = "OK · " + self.updatedAt + " · " + self.intervalSec + "秒自动刷新" + tail + " · " + (self.histOn ? "历√" : "历" + String(self.liveLog || "-").slice(0, 16));
+        try {
+          if (self.liveBusy && self.liveStartTs > 0 && nowMs() - self.liveStartTs > HIST_TIMEOUT + 2e3) {
+            self.liveBusy = false;
+            self.liveLog = addLog(self.liveLog, "看门狗");
+            if (!self.histOn) self.liveNote = "历史:卡死重试 " + self.liveLog;
+          }
+        } catch (eW) {
+        }
         self.statusColor = "#00C853";
       } catch (e) {
         self.statusText = "更新异常@" + step + " " + msgOf(e);
@@ -1317,7 +1485,12 @@ const $app_script$1552441465 = {
       ctx.clearRect(0, 0, RW, RH);
     } catch (e) {
     }
-    const PER = n < 16 ? 1 : n < 48 ? 2 : SAMPLE_PER;
+    let PER = SAMPLE_PER;
+    try {
+      PER = this.histPts > 0 ? this.histPts : 12;
+    } catch (eP0) {
+      PER = SAMPLE_PER;
+    }
     const bars = Math.floor(n / PER);
     if (bars < 1 || !base || base <= 0) {
       this.chartNote = "图:采样中 " + n + "/" + PER;
@@ -1325,18 +1498,27 @@ const $app_script$1552441465 = {
       return;
     }
     try {
-      const padX = 8;
+      const padX = 14;
       const padL = 46;
       const padY = 10;
       const cnt = bars < SLOT_K ? bars : SLOT_K;
+      const slots = cnt < SLOT_K ? cnt : SLOT_K;
+      const gapN = slots - cnt;
       const kO = [];
       const kC = [];
       const kH = [];
       const kL = [];
       let i = 0;
       let j = 0;
-      for (i = 0; i < cnt; i++) {
-        const s = (bars - cnt + i) * PER;
+      for (i = 0; i < slots; i++) {
+        if (i < gapN) {
+          kO[i] = NaN;
+          kC[i] = NaN;
+          kH[i] = NaN;
+          kL[i] = NaN;
+          continue;
+        }
+        const s = (bars - cnt + (i - gapN)) * PER;
         const oo = data[s];
         const cc = data[s + PER - 1];
         let hh = data[s];
@@ -1346,14 +1528,14 @@ const $app_script$1552441465 = {
           if (v > hh) hh = v;
           if (v < ll) ll = v;
         }
-        kO[kO.length] = oo;
-        kC[kC.length] = cc;
-        kH[kH.length] = hh;
-        kL[kL.length] = ll;
+        kO[i] = oo;
+        kC[i] = cc;
+        kH[i] = hh;
+        kL[i] = ll;
       }
-      let hiK = kH[0];
-      let loK = kL[0];
-      for (i = 1; i < cnt; i++) {
+      let hiK = kH[gapN];
+      let loK = kL[gapN];
+      for (i = gapN + 1; i < slots; i++) {
         if (kH[i] > hiK) hiK = kH[i];
         if (kL[i] < loK) loK = kL[i];
       }
@@ -1370,9 +1552,10 @@ const $app_script$1552441465 = {
       const yOf = function(v) {
         return padY + (yTop - v) / (yTop - yBot) * innerH;
       };
-      const cw = (RW - padL - padX) / SLOT_K;
+      const cw = (RW - padL - padX) / slots;
       let bw = cw * 0.62;
       if (bw < 2) bw = 2;
+      if (bw > 18) bw = 18;
       const y0 = yOf(base);
       if (y0 >= padY && y0 <= RH - padY) {
         ctx.fillStyle = "#4B5563";
@@ -1403,8 +1586,8 @@ const $app_script$1552441465 = {
         }
       } catch (eT) {
       }
-      for (i = 0; i < cnt; i++) {
-        const x = padL + (RW - padL - padX) - (cnt - i) * cw + (cw - bw) / 2;
+      for (i = gapN; i < slots; i++) {
+        const x = padL + i * cw + (cw - bw) / 2;
         const yHh = yOf(kH[i]);
         const yLl = yOf(kL[i]);
         const yOo = yOf(kO[i]);
@@ -1429,12 +1612,12 @@ const $app_script$1552441465 = {
         ctx.lineWidth = 2;
         ctx.beginPath();
         let first = true;
-        for (i = 6; i < cnt; i++) {
+        for (i = gapN + 6; i < slots; i++) {
           let sum = 0;
           let k = 0;
           for (k = i - 6; k <= i; k++) sum += kC[k];
           const avg = sum / 7;
-          const x = padL + (RW - padL - padX) - (cnt - i) * cw - cw / 2;
+          const x = padL + i * cw + cw / 2;
           const y = yOf(avg);
           if (first) {
             ctx.moveTo(x, y);
@@ -1446,9 +1629,14 @@ const $app_script$1552441465 = {
         ctx.stroke();
       }
       const endMs = nowMs();
-      const spanMs = cnt * (PER * this.intervalSec) * 1e3;
-      let startMs = endMs - spanMs;
-      if (this.histOn && this.histT0 > 0) startMs = this.histT0;
+      let barMs = 15e4;
+      try {
+        if (this.histBarMs > 0) barMs = this.histBarMs;
+        else if (this.histSeries && Number(this.histSeries.st) > 0) barMs = Number(this.histSeries.st);
+      } catch (eS1) {
+      }
+      const spanMs = cnt * barMs;
+      const startMs = endMs - spanMs;
       const tA = hhmm(startMs);
       const tM = hhmm((startMs + endMs) / 2);
       const tB = hhmm(endMs);
@@ -1464,9 +1652,9 @@ const $app_script$1552441465 = {
       ctx.fillText(tM, (padL + RW - padX) / 2, RH - 5);
       ctx.textAlign = "right";
       ctx.fillText(tB, RW - padX, RH - 5);
-      const lastP = kC[cnt - 1];
-      this.chartInfo = "今起 " + signedPct((lastP - base) / base * 100) + " 高 " + signedPct((hiK - base) / base * 100) + " 低 " + signedPct((loK - base) / base * 100);
-      this.chartNote = "图:ok " + cnt + "根 基准" + fixed2(base);
+      const lastP = kC[slots - 1];
+      this.chartInfo = "24h前 " + signedPct((lastP - base) / base * 100) + " 高 " + signedPct((hiK - base) / base * 100) + " 低 " + signedPct((loK - base) / base * 100);
+      this.chartNote = (this.histOn ? "图:ok " : "积累中 ") + cnt + "/48 基准" + fixed2(base);
     } catch (e) {
       this.chartNote = "图:绘制异常 " + msgOf(e);
     }
@@ -1492,7 +1680,8 @@ const $app_script$1552441465 = {
     }
     const opts = {
       url: KLINE_URL,
-      method: "GET"
+      method: "GET",
+      header: UA_H
     };
     opts.success = function(res) {
       if (settled) return;
@@ -1505,7 +1694,17 @@ const $app_script$1552441465 = {
       let step = 0;
       try {
         step = 1;
-        const arr = pickKline(res);
+        let arr = null;
+        try {
+          arr = pickKline(res);
+        } catch (ePK) {
+        }
+        if (!arr) {
+          try {
+            arr = pickEmDay(res);
+          } catch (ePD) {
+          }
+        }
         if (!arr) {
           self.kStatus = "日K:解析失败";
           self.kStatusColor = "#FF4D4F";
@@ -1756,5 +1955,5 @@ $app_define$("@app-component/index", [], function($app_require$2, $app_exports$,
   $app_module$.exports.style = $app_style$1552441465;
 });
 $app_bootstrap$("@app-component/index");
-//# debugId=27137c0c-a73b-4404-8ff7-a1f8f8aef697
+//# debugId=66568b0e-23d9-49db-88d3-96906b02c685
 //# sourceMappingURL=index.js.map
