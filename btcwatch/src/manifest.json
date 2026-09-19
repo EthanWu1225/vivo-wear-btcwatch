@@ -1,0 +1,32 @@
+{
+  "package": "com.operit.btcwatch",
+  "name": "比特币行情",
+  "versionName": "1.0.0",
+  "versionCode": 100,
+  "minPlatformVersion": 1,
+  "icon": "/assets/images/logo.png",
+  "features": [
+    { "name": "blueos.network.fetch" },
+    { "name": "blueos.communication.network.fetch" },
+    { "name": "blueos.app.appmanager.router" },
+    { "name": "blueos.hardware.vibrator.vibrator" },
+    { "name": "blueos.storage.storage" }
+  ],
+  "deviceTypeList": ["watch", "watch-square"],
+  "config": {
+    "designWidth": 466,
+    "logLevel": "info"
+  },
+  "router": {
+    "entry": "pages/index",
+    "pages": {
+      "pages/index": {
+        "component": "index"
+      }
+    }
+  },
+  "display": {
+    "backgroundColor": "#000000"
+  },
+  "appCategory": ["finance", "utilities"]
+}

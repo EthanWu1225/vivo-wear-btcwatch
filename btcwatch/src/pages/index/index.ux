@@ -1,0 +1,2834 @@
+<template>
+  <div
+    id="crownbox"
+    onrotation="onCrown"
+    rotation-sensitivity="1"
+    style="
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      height: 100%;
+      background-color: #000000;
+    ">
+    <!-- ========== 顶部虚拟按钮（下移避开表框边缘 + 加大热区） ========== -->
+    <div
+      style="
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        width: 360px;
+        margin-top: 10px;
+      ">
+      <input
+        type="button"
+        value="实时"
+        onclick="tabRealtime"
+        style="width:114px; height:46px; border-radius:23px; font-size:20px; color:#FFFFFF; background-color:{{bgTab0}};" />
+      <input
+        type="button"
+        value="日K"
+        onclick="tabKline"
+        style="width:114px; height:46px; border-radius:23px; font-size:20px; color:#FFFFFF; background-color:{{bgTab1}};" />
+      <input
+        type="button"
+        value="设置"
+        onclick="tabSetting"
+        style="width:114px; height:46px; border-radius:23px; font-size:20px; color:#FFFFFF; background-color:{{bgTab2}};" />
+    </div>
+
+    <!-- ========== 视图 1：实时（大图） ========== -->
+    <div
+      if="{{isRealtime}}"
+      style="display: flex; flex-direction: column; align-items: center; width: 360px">
+      <div
+        style="
+          display: flex;
+          flex-direction: row;
+          justify-content: space-between;
+          align-items: center;
+          width: 360px;
+          margin-top: 4px;
+        ">
+        <text style="font-size: 16px; color: #6b7280">Gate.io · {{ sourceName }}</text>
+        <text style="font-size: 16px; color: #9ca3af">{{ updatedAt }}</text>
+      </div>
+      <text style="width:360px; font-size:40px; color:{{priceColor}};">{{ price }}</text>
+      <div
+        style="
+          display: flex;
+          flex-direction: row;
+          justify-content: space-between;
+          align-items: center;
+          width: 360px;
+          margin-top: 2px;
+        ">
+        <text style="font-size:21px; color:{{priceColor}};">{{ changePct }}</text>
+        <text style="font-size: 15px; color: #9ca3af">高 {{ high }}</text>
+        <text style="font-size: 15px; color: #9ca3af">低 {{ low }}</text>
+      </div>
+      <div
+        style="
+          display: flex;
+          flex-direction: row;
+          justify-content: space-between;
+          align-items: center;
+          width: 360px;
+          margin-top: 2px;
+        ">
+        <text style="font-size: 14px; color: #9ca3af">额 {{ volume }}</text>
+        <text style="font-size: 14px; color: #9ca3af">{{ chartInfo }}</text>
+      </div>
+      <canvas id="chartR" style="width: 360px; height: 190px; margin-top: 2px"></canvas>
+      <text style="width:360px; font-size:14px; color:{{statusColor}}; margin-top:2px;">
+        {{ statusText }}
+      </text>
+      <text
+        if="{{showDebug}}"
+        style="width: 360px; font-size: 12px; color: #f59e0b; margin-top: 2px">
+        {{ selfTest }}
+      </text>
+      <text
+        if="{{showDebug}}"
+        style="width: 360px; font-size: 12px; color: #f59e0b; margin-top: 2px">
+        {{ chartNote }}
+      </text>
+      <text
+        if="{{showDebug}}"
+        style="width: 360px; font-size: 11px; color: #60a5fa; margin-top: 2px">
+        {{ liveNote }}
+      </text>
+      <text if="{{rawSnip}}" style="width: 360px; font-size: 11px; color: #9ca3af; margin-top: 2px">
+        {{ rawSnip }}
+      </text>
+      <div
+        style="
+          display: flex;
+          flex-direction: row;
+          justify-content: space-between;
+          align-items: center;
+          width: 360px;
+          margin-top: 6px;
+        ">
+        <input
+          type="button"
+          value="立即刷新"
+          onclick="refresh"
+          style="
+            width: 172px;
+            height: 42px;
+            border-radius: 21px;
+            font-size: 19px;
+            color: #ffffff;
+            background-color: #1f2937;
+          " />
+        <input
+          type="button"
+          value="切到日K ›"
+          onclick="tabKline"
+          style="
+            width: 172px;
+            height: 42px;
+            border-radius: 21px;
+            font-size: 19px;
+            color: #ffffff;
+            background-color: #1d4ed8;
+          " />
+      </div>
+    </div>
+
+    <!-- ========== 视图 2：日K（大图 + MA7） ========== -->
+    <div
+      if="{{isKline}}"
+      style="display: flex; flex-direction: column; align-items: center; width: 360px">
+      <div
+        style="
+          display: flex;
+          flex-direction: row;
+          justify-content: space-between;
+          align-items: center;
+          width: 360px;
+          margin-top: 4px;
+        ">
+        <text style="font-size: 15px; color: #9ca3af">日K · 03066.HK BTC代理</text>
+        <text style="font-size: 13px; color: #6b7280">{{ kCount }}根</text>
+      </div>
+      <canvas id="chartK" style="width: 360px; height: 245px; margin-top: 2px"></canvas>
+      <div
+        style="
+          display: flex;
+          flex-direction: row;
+          justify-content: space-between;
+          align-items: center;
+          width: 360px;
+          margin-top: 4px;
+        ">
+        <text style="font-size:20px; color:{{kLastColor}};">收 {{ kLast }}</text>
+        <text style="font-size:20px; color:{{kLastColor}};">{{ kChg }}</text>
+      </div>
+      <div
+        style="
+          display: flex;
+          flex-direction: row;
+          justify-content: space-between;
+          align-items: center;
+          width: 360px;
+          margin-top: 2px;
+        ">
+        <text style="font-size: 14px; color: #9ca3af">高 {{ kHi }}</text>
+        <text style="font-size: 14px; color: #9ca3af">低 {{ kLo }}</text>
+        <text style="font-size: 14px; color: #f59e0b">MA7 {{ kMa7 }}</text>
+      </div>
+      <text style="width: 360px; font-size: 13px; color: #6b7280; margin-top: 2px">
+        {{ kRange }}
+      </text>
+      <text style="width:360px; font-size:13px; color:{{kStatusColor}}; margin-top:2px;">
+        {{ kStatus }}
+      </text>
+      <div
+        style="
+          display: flex;
+          flex-direction: row;
+          justify-content: space-between;
+          align-items: center;
+          width: 360px;
+          margin-top: 6px;
+        ">
+        <input
+          type="button"
+          value="重新加载"
+          onclick="loadKline"
+          style="
+            width: 172px;
+            height: 42px;
+            border-radius: 21px;
+            font-size: 19px;
+            color: #ffffff;
+            background-color: #1f2937;
+          " />
+        <input
+          type="button"
+          value="‹ 回到实时"
+          onclick="tabRealtime"
+          style="
+            width: 172px;
+            height: 42px;
+            border-radius: 21px;
+            font-size: 19px;
+            color: #ffffff;
+            background-color: #1d4ed8;
+          " />
+      </div>
+    </div>
+
+    <!-- ========== 视图 3：设置 ========== -->
+    <div
+      if="{{isSetting}}"
+      style="display: flex; flex-direction: column; align-items: center; width: 360px">
+      <div
+        style="
+          display: flex;
+          flex-direction: row;
+          justify-content: space-between;
+          align-items: center;
+          width: 360px;
+          margin-top: 6px;
+        ">
+        <text style="font-size: 19px; color: #e5e7eb">振动提醒</text>
+        <div style="display: flex; flex-direction: row; align-items: center">
+          <input
+            type="button"
+            value="开"
+            onclick="setVibOn"
+            style="width:76px; height:42px; border-radius:21px; font-size:18px; color:#FFFFFF; background-color:{{bgVib0}};" />
+          <input
+            type="button"
+            value="关"
+            onclick="setVibOff"
+            style="width:76px; height:42px; border-radius:21px; font-size:18px; color:#FFFFFF; background-color:{{bgVib1}}; margin-left:8px;" />
+        </div>
+      </div>
+
+      <div
+        style="
+          display: flex;
+          flex-direction: row;
+          justify-content: space-between;
+          align-items: center;
+          width: 360px;
+          margin-top: 10px;
+        ">
+        <text style="font-size: 19px; color: #e5e7eb">配色方案</text>
+        <div style="display: flex; flex-direction: row; align-items: center">
+          <input
+            type="button"
+            value="绿涨红跌"
+            onclick="setScheme0"
+            style="width:96px; height:42px; border-radius:21px; font-size:16px; color:#FFFFFF; background-color:{{bgSch0}};" />
+          <input
+            type="button"
+            value="红涨绿跌"
+            onclick="setScheme1"
+            style="width:96px; height:42px; border-radius:21px; font-size:16px; color:#FFFFFF; background-color:{{bgSch1}}; margin-left:8px;" />
+        </div>
+      </div>
+
+      <div
+        style="
+          display: flex;
+          flex-direction: row;
+          justify-content: space-between;
+          align-items: center;
+          width: 360px;
+          margin-top: 10px;
+        ">
+        <text style="font-size: 19px; color: #e5e7eb">刷新间隔</text>
+        <div style="display: flex; flex-direction: row; align-items: center">
+          <input
+            type="button"
+            value="‹"
+            onclick="setItvPrev"
+            style="
+              width: 76px;
+              height: 42px;
+              border-radius: 21px;
+              font-size: 24px;
+              color: #ffffff;
+              background-color: #1f2937;
+            " />
+          <input
+            type="button"
+            value="{{itvLabel}}"
+            onclick="setItvNext"
+            style="width:100px; height:42px; border-radius:21px; font-size:18px; color:#FFFFFF; background-color:{{bgI0}}; margin-left:8px;" />
+          <input
+            type="button"
+            value="›"
+            onclick="setItvNext"
+            style="
+              width: 76px;
+              height: 42px;
+              border-radius: 21px;
+              font-size: 24px;
+              color: #ffffff;
+              background-color: #1f2937;
+              margin-left: 8px;
+            " />
+        </div>
+      </div>
+
+      <div
+        style="
+          display: flex;
+          flex-direction: row;
+          justify-content: space-between;
+          align-items: center;
+          width: 360px;
+          margin-top: 10px;
+        ">
+        <text style="font-size: 19px; color: #e5e7eb">调试信息</text>
+        <div style="display: flex; flex-direction: row; align-items: center">
+          <input
+            type="button"
+            value="显示"
+            onclick="setDbgOn"
+            style="width:76px; height:42px; border-radius:21px; font-size:18px; color:#FFFFFF; background-color:{{bgDbg0}};" />
+          <input
+            type="button"
+            value="隐藏"
+            onclick="setDbgOff"
+            style="width:76px; height:42px; border-radius:21px; font-size:18px; color:#FFFFFF; background-color:{{bgDbg1}}; margin-left:8px;" />
+        </div>
+      </div>
+
+      <div
+        style="
+          display: flex;
+          flex-direction: row;
+          justify-content: space-between;
+          align-items: center;
+          width: 360px;
+          margin-top: 12px;
+        ">
+        <input
+          type="button"
+          value="恢复默认"
+          onclick="restoreDefaults"
+          style="
+            width: 360px;
+            height: 42px;
+            border-radius: 21px;
+            font-size: 18px;
+            color: #ffffff;
+            background-color: #7f1d1d;
+          " />
+      </div>
+
+      <text style="width: 360px; font-size: 12px; color: #60a5fa; margin-top: 4px">
+        表冠：{{ crownText }}
+      </text>
+      <text style="width: 360px; font-size: 13px; color: #6b7280; margin-top: 6px">
+        版本 {{ appVer }}
+      </text>
+      <div
+        style="
+          display: flex;
+          flex-direction: row;
+          justify-content: space-between;
+          align-items: center;
+          width: 360px;
+          margin-top: 10px;
+        ">
+        <input
+          type="button"
+          value="‹ 回到实时"
+          onclick="tabRealtime"
+          style="
+            width: 172px;
+            height: 42px;
+            border-radius: 21px;
+            font-size: 18px;
+            color: #ffffff;
+            background-color: #1d4ed8;
+          " />
+        <input
+          type="button"
+          value="看日K ›"
+          onclick="tabKline"
+          style="
+            width: 172px;
+            height: 42px;
+            border-radius: 21px;
+            font-size: 18px;
+            color: #ffffff;
+            background-color: #1d4ed8;
+          " />
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+  import fetch from '@blueos.network.fetch'
+  import vibrator from '@blueos.hardware.vibrator.vibrator'
+  import storage from '@blueos.storage.storage'
+
+  /* ============ 常量 ============ */
+  const HOST = 'data.gateapi.io'
+  const GATE_PATH = '/api2/1/ticker/btc_usdt'
+  const GATE_HTTPS = 'https://data.gateapi.io/api2/1/ticker/btc_usdt'
+  /* 只保留实测可用 IP（第二个 13.159.219.98 会返回 301，卡死网络栈） */
+  const HARD_IPS = ['13.114.117.54']
+
+  /* 日K：腾讯港股日线（上周真机验证过可用的源，恢复使用） */
+  const KLINE_URL =
+    'https://web.ifzq.gtimg.cn/appstock/app/hkfqkline/get?param=hk03066,day,,,320,qfq'
+  /* 日K 备用源：东财 HTTP（仅在腾讯失败时手动重试用） */
+  const KLINE_URL_EM =
+    'http://push2his.eastmoney.com/api/qt/stock/kline/get?secid=116.03066&klt=101&fqt=1&lmt=40&end=20500101&fields1=f1,f2,f3,f4&fields2=f51,f52,f53,f54,f55,f56'
+  const KLINE_KEY = 'hk03066'
+  const KLINE_N = 40
+
+  const REQ_TIMEOUT = 4500
+  const REQ_TIMEOUT_K = 9000
+  const HIST_TIMEOUT = 6000
+  const LIVE_RETRY = 5000
+  const GATE_V2_KLINE15 = '/api2/1/candlestick/btc_usdt?group_sec=900&range_hour=24'
+  const GATE_V2_KLINE30 = '/api2/1/candlestick/btc_usdt?group_sec=1800&range_hour=24'
+  const EM_BTC_1M =
+    'http://push2his.eastmoney.com/api/qt/stock/kline/get?secid=107.BTC&klt=5&fqt=1&lmt=40&end=20500101&fields1=f1,f2,f3,f4&fields2=f51,f52,f53,f54,f55,f56'
+  const EM_HK_1M =
+    'http://push2his.eastmoney.com/api/qt/stock/kline/get?secid=116.03066&klt=5&fqt=1&lmt=40&end=20500101&fields1=f1,f2,f3,f4&fields2=f51,f52,f53,f54,f55,f56'
+  const TENCENT_MIN = 'https://web.ifzq.gtimg.cn/appstock/app/minute/query?code=hk03066'
+  const ITV_STEPS = [5, 10, 15, 30, 60]
+  const MAX_SAMPLES = 520
+  const SAMPLE_PER = 10
+  const SLOT_K = 48
+  const SMP_KEY = 'btcwatch_samples'
+  /* 真·分钟K线补历史（v4 走 443 可用；域名解析失败时用 IP + Host 兜底） */
+  const GATE_API_HOST = 'api.gateio.ws'
+  const GATE_API_IPS = ['54.150.38.76', '54.250.14.127', '57.183.50.180']
+  const GATE_V4_PATH = '/api/v4/spot/candlesticks?currency_pair=BTC_USDT&interval=1m&limit=120'
+  /* 币安公共数据域名（无需 key，国内通常可直连） */
+  const BINANCE_KL =
+    'https://data-api.binance.vision/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=120'
+  const BINANCE_KL2 = 'https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=120'
+  const OKX_KL = 'https://www.okx.com/api/v5/market/candles?instId=BTC-USDT&bar=1m&limit=120'
+  /* Gate v2 老接口：明文 HTTP:80 就能拿 K线（手表唯一验证过能通的通道） */
+  const GATE_V2_KLINE = '/api2/1/candlestick/btc_usdt?group_sec=300&range_hour=24'
+  const GATE_V2_KLINE2 = '/api2/1/candlestick/btc_usdt?group_sec=60&range_hour=6'
+  const COINEX_LIVE = 'https://api.coinex.com/v2/spot/kline?market=BTCUSDT&period=1min&limit=120'
+  const LIVE_KEEP = 48
+  /* 历史源一次取多少根原始 K线（1 分钟粒度 → 120 根 = 2 小时） */
+  const SRC_BARS = 120
+  /* 每根蜡烛的真实时长（Gate 蜡烛接口固定 30 分钟） */
+  const BAR_MS = 1800000
+  const LABEL_H = 18
+  const CROWN_INVERT = true
+  const CFG_KEY = 'btcwatch_cfg'
+  const APP_VER = 'v1.1.21'
+  const UA_H = {
+    'User-Agent':
+      'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36',
+  }
+
+  const COLOR_RED = '#FF4D4F'
+  const COLOR_GREEN = '#00C853'
+  const COLOR_MA = '#F59E0B'
+  const BG_ON = '#1F6FEB'
+  const BG_OFF = '#1F2937'
+
+  /* 图表画布尺寸（改大小只需改这里 + 模板里的 style） */
+  const RW = 360
+  const RH = 190
+  const KW = 360
+  const KH = 245
+
+  /* ============ 外设模块（ES6 静态导入：蓝河不支持 commonJS require） ============ */
+  function normMod(m, key) {
+    try {
+      if (m && typeof m[key] === 'function') return m
+      if (m && m.default && typeof m.default[key] === 'function') return m.default
+      if (m && m.default) return m.default
+    } catch (e) {}
+    return m || null
+  }
+  let VIB_MOD = normMod(vibrator, 'vibrate')
+  let STO_MOD = normMod(storage, 'set')
+  function getVib() {
+    return VIB_MOD
+  }
+  function getSto() {
+    return STO_MOD
+  }
+
+  /* ============ 模块级纯函数 ============ */
+  function tOf(x) {
+    try {
+      return typeof x
+    } catch (e) {
+      return '?'
+    }
+  }
+
+  function msgOf(e) {
+    try {
+      return '' + e
+    } catch (e2) {
+      return 'error'
+    }
+  }
+
+  function safeNum(v) {
+    if (typeof v === 'number') return v !== v ? 0 : v
+    if (typeof v === 'string') {
+      const n = Number(v)
+      return n !== n ? 0 : n
+    }
+    const n2 = Number(v)
+    return n2 !== n2 ? 0 : n2
+  }
+
+  function pad2(x) {
+    return x < 10 ? '0' + x : '' + x
+  }
+
+  function fixed2(v) {
+    let n = Number(v)
+    if (n !== n) return '--'
+    const neg = n < 0
+    if (neg) n = -n
+
+    let cents = (n * 100 + 0.5) | 0
+    const dec = cents % 100
+    const intPart = (cents - dec) / 100
+
+    const digits = []
+    let ip = intPart
+    if (ip === 0) digits[0] = '0'
+    while (ip > 0) {
+      const d = ip % 10 | 0
+      digits[digits.length] = '' + d
+      ip = (ip - d) / 10
+    }
+
+    let intStr = ''
+    let cnt = 0
+    for (let k = 0; k < digits.length; k++) {
+      intStr = digits[k] + intStr
+      cnt++
+      if (cnt % 3 === 0 && k < digits.length - 1) intStr = ',' + intStr
+    }
+
+    const decStr = dec < 10 ? '0' + dec : '' + dec
+    return (neg ? '-' : '') + intStr + '.' + decStr
+  }
+
+  function fmtVol(v) {
+    let n = safeNum(v)
+    if (n < 0) n = -n
+    if (n >= 100000000) return fixed2(n / 100000000) + '亿'
+    if (n >= 10000) return fixed2(n / 10000) + '万'
+    return '' + ((n + 0.5) | 0)
+  }
+
+  function signedPct(p) {
+    return (p >= 0 ? '+' : '') + fixed2(p) + '%'
+  }
+
+  function clockText() {
+    try {
+      const d = new Date()
+      return pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds())
+    } catch (e) {
+      return '--'
+    }
+  }
+
+  function hhmm(ms) {
+    try {
+      const d = new Date(ms)
+      return pad2(d.getHours()) + ':' + pad2(d.getMinutes())
+    } catch (e) {
+      return '--'
+    }
+  }
+
+  function mmdd(s) {
+    const t = '' + s
+    if (t.length >= 10) return t.substring(5, 10)
+    return t
+  }
+
+  function nowMs() {
+    try {
+      return new Date().getTime()
+    } catch (e) {
+      return 0
+    }
+  }
+
+  function toObj(text) {
+    if (text === null || text === undefined) return null
+    if (typeof text === 'object') return text
+    try {
+      return JSON.parse('' + text)
+    } catch (e) {
+      return null
+    }
+  }
+
+  /* 配色：scheme 0 = 绿涨红跌（币圈）；1 = 红涨绿跌（A股） */
+  function upColor(page, isUp) {
+    let agStock = false
+    try {
+      agStock = page.scheme === 1
+    } catch (e) {}
+    if (agStock) return isUp ? COLOR_RED : COLOR_GREEN
+    return isUp ? COLOR_GREEN : COLOR_RED
+  }
+
+  function pickTicker(res) {
+    let raw = res
+    if (raw && raw.data !== undefined && raw.data !== null) raw = raw.data
+    const d = toObj(raw)
+    if (!d) return null
+
+    let o = d
+    if (o.data && typeof o.data === 'object' && o.data.length > 0) o = o.data[0]
+
+    let lastRaw = o.last
+    if (lastRaw === undefined || lastRaw === null) lastRaw = o.close
+    if (lastRaw === undefined || lastRaw === null) return null
+
+    const last = safeNum(lastRaw)
+    if (last <= 0) return null
+
+    let pct = o.percentChange
+    if (pct === undefined || pct === null) pct = o.changePercent
+    if (pct === undefined || pct === null) pct = 0
+
+    let hi = o.high24hr
+    if (hi === undefined || hi === null) hi = o.high
+    let lo = o.low24hr
+    if (lo === undefined || lo === null) lo = o.low
+    let vol = o.baseVolume
+    if (vol === undefined || vol === null) vol = o.value
+
+    return { last: last, pct: safeNum(pct), high: safeNum(hi), low: safeNum(lo), vol: safeNum(vol) }
+  }
+
+  /* 东财日线：{"data":{"klines":["2026-09-18,开,收,高,低,...", ...]}} → [[日期,开,收,高,低], ...] */
+  function pickEmDay(res) {
+    let raw = res
+    if (raw && raw.data !== undefined && raw.data !== null) raw = raw.data
+    const j = toObj(raw)
+    if (!j) return null
+    const root = j.data
+    if (!root) return null
+    const arr = root.klines
+    if (!arr || typeof arr.length !== 'number' || arr.length < 2) return null
+    const out = []
+    let i = 0
+    for (i = 0; i < arr.length; i++) {
+      const row = ('' + arr[i]).split(',')
+      if (row.length < 5) continue
+      out[out.length] = row
+    }
+    if (out.length < 2) return null
+    return out
+  }
+
+  function pickKline(res) {
+    let raw = res
+    if (raw && raw.data !== undefined && raw.data !== null) raw = raw.data
+    const j = toObj(raw)
+    if (!j) return null
+    const root = j.data
+    if (!root) return null
+    const node = root[KLINE_KEY]
+    if (!node) return null
+    const arr = node.day
+    if (!arr || typeof arr.length !== 'number' || arr.length < 2) return null
+    return arr
+  }
+
+  /* Gate v4 蜡烛：[时间(秒), 成交额, 收, 高, 低, 开, 量, 是否收盘] */
+  function parseGateLive(res) {
+    let raw = res
+    if (raw && raw.data !== undefined && raw.data !== null) raw = raw.data
+    const arr = toObj(raw)
+    if (!arr || typeof arr.length !== 'number' || arr.length < 2) return null
+    const o = []
+    const h = []
+    const l = []
+    const c = []
+    const t = []
+    const n = arr.length
+    let i = 0
+    for (i = 0; i < n; i++) {
+      const a = arr[i]
+      if (!a || typeof a.length !== 'number' || a.length < 6) continue
+      const cc = Number(a[2])
+      const hh = Number(a[3])
+      const ll = Number(a[4])
+      const oo = Number(a[5])
+      if (cc !== cc || cc <= 0) continue
+      /* 最后一根还没走完（closed != true）就丢掉，避免和本机采样重复 */
+      if (i === n - 1 && '' + a[7] !== 'true') continue
+      o[o.length] = oo
+      h[h.length] = hh
+      l[l.length] = ll
+      c[c.length] = cc
+      t[t.length] = Number(a[0]) * 1000
+    }
+    if (c.length < 2) return null
+    return { o: o, h: h, l: l, c: c, t: t, st: 60000 }
+  }
+
+  /* 蜡烛数值合法性：o 开 / h 高 / l 低 / c 收 */
+  function itvIndex(v) {
+    for (let i = 0; i < ITV_STEPS.length; i++) {
+      if (ITV_STEPS[i] === v) return i
+    }
+    return 0
+  }
+
+  function layoutOk(o, h, l, c) {
+    if (o !== o || h !== h || l !== l || c !== c) return false
+    if (h < l || h <= 0 || l <= 0) return false
+    if (h < o || h < c) return false
+    if (l > o || l > c) return false
+    return true
+  }
+
+  /* 取回包片段做诊断（压平换行，截 34 字） */
+  function snipOf(res) {
+    try {
+      let s = ''
+      if (res && res.data !== undefined && res.data !== null) s = '' + res.data
+      else s = '' + res
+      s = s.split(String.fromCharCode(10)).join(' ')
+      s = s.split(String.fromCharCode(13)).join(' ')
+      s = s.split(String.fromCharCode(9)).join(' ')
+      if (s.length > 34) s = s.substring(0, 34)
+      return s
+    } catch (e) {
+      return '?'
+    }
+  }
+
+  /* Gate v2 蜡烛：[时间(毫秒), 成交额, 收, 高, 低, 开]；个别节点给 [t,开,高,低,收,量]，自动识别 */
+  function parseGateV2(res) {
+    let raw = res
+    if (raw && raw.data !== undefined && raw.data !== null) raw = raw.data
+    let j = toObj(raw)
+    if (!j) return null
+    if (typeof j.length === 'number' && !j.data) j = { data: j }
+    let arr = j.data
+    if (arr && arr.data && typeof arr.data.length === 'number') arr = arr.data
+    if (!arr || typeof arr.length !== 'number' || arr.length < 2) return null
+    let i = 0
+    let okA = 0
+    let okB = 0
+    for (i = 0; i < arr.length; i++) {
+      const a = arr[i]
+      if (!a || typeof a.length !== 'number' || a.length < 6) continue
+      /* 实测（2026-09-18）data.gateapi.io v2 candlestick 行格式：
+         [毫秒时间戳, 成交量, 开, 高, 低, 收] */
+      if (layoutOk(Number(a[2]), Number(a[3]), Number(a[4]), Number(a[5]))) okA++
+      if (layoutOk(Number(a[1]), Number(a[2]), Number(a[3]), Number(a[4]))) okB++
+    }
+    const useB = okB > okA
+    const o = []
+    const h = []
+    const l = []
+    const c = []
+    const t = []
+    for (i = 0; i < arr.length; i++) {
+      const a = arr[i]
+      if (!a || typeof a.length !== 'number' || a.length < 6) continue
+      const oo = Number(useB ? a[1] : a[2])
+      const cc = Number(useB ? a[4] : a[5])
+      const hh = Number(useB ? a[2] : a[3])
+      const ll = Number(useB ? a[3] : a[4])
+      if (!layoutOk(oo, hh, ll, cc)) continue
+      o[o.length] = oo
+      h[h.length] = hh
+      l[l.length] = ll
+      c[c.length] = cc
+      t[t.length] = Number(a[0])
+    }
+    if (c.length < 2) return null
+    if (t.length > 0 && t[0] > 0 && t[0] < 100000000000) {
+      for (i = 0; i < t.length; i++) t[i] = t[i] * 1000
+    }
+    let stv = 1800000
+    if (t.length > 1) {
+      const dv = t[1] - t[0]
+      if (dv > 0) stv = dv
+    }
+    return { o: o, h: h, l: l, c: c, t: t, st: stv }
+  }
+
+  /* Gate v4 candlesticks：
+     [秒时间戳, 计价成交量, 收, 高, 低, 开, 基础成交量, 是否完结] */
+  function parseGateV4(res) {
+    let raw = res
+    if (raw && raw.data !== undefined && raw.data !== null) raw = raw.data
+    const j = toObj(raw)
+    if (!j) return null
+    let arr = j
+    if (arr && arr.data && typeof arr.data.length === 'number') arr = arr.data
+    if (!arr || typeof arr.length !== 'number' || arr.length < 2) return null
+    const o = []
+    const h = []
+    const l = []
+    const c = []
+    const t = []
+    let i = 0
+    for (i = 0; i < arr.length; i++) {
+      const a = arr[i]
+      if (!a || typeof a.length !== 'number' || a.length < 6) continue
+      const tt = Number(a[0])
+      const cc = Number(a[2])
+      const hh = Number(a[3])
+      const ll = Number(a[4])
+      const oo = Number(a[5])
+      if (!(tt > 0)) continue
+      if (!layoutOk(oo, hh, ll, cc)) continue
+      o[o.length] = oo
+      h[h.length] = hh
+      l[l.length] = ll
+      c[c.length] = cc
+      t[t.length] = tt > 100000000000 ? tt : tt * 1000
+    }
+    if (c.length < 2) return null
+    let stv = 300000
+    if (t.length > 1) {
+      const dv = t[1] - t[0]
+      if (dv > 0) stv = dv
+    }
+    return { o: o, h: h, l: l, c: c, t: t, st: stv }
+  }
+
+  /* CoinEx 备用：{"code":0,"data":[{open,high,low,close,created_at}]} */
+  /* 币安 klines：[[毫秒开盘时间, 开, 高, 低, 收, 量, ...], ...]（升序） */
+  function parseBinKline(res) {
+    let raw = res
+    if (raw && raw.data !== undefined && raw.data !== null) raw = raw.data
+    const j = toObj(raw)
+    if (!j) return null
+    let arr = j
+    if (arr && arr.data && typeof arr.data.length === 'number') arr = arr.data
+    if (!arr || typeof arr.length !== 'number' || arr.length < 2) return null
+    const o = []
+    const h = []
+    const l = []
+    const c = []
+    const t = []
+    let i = 0
+    for (i = 0; i < arr.length; i++) {
+      const a = arr[i]
+      if (!a || typeof a.length !== 'number' || a.length < 6) continue
+      const tt = Number(a[0])
+      const oo = Number(a[1])
+      const hh = Number(a[2])
+      const ll = Number(a[3])
+      const cc = Number(a[4])
+      if (!(tt > 0)) continue
+      if (!layoutOk(oo, hh, ll, cc)) continue
+      o[o.length] = oo
+      h[h.length] = hh
+      l[l.length] = ll
+      c[c.length] = cc
+      t[t.length] = tt > 100000000000 ? tt : tt * 1000
+    }
+    if (c.length < 2) return null
+    let stv = 60000
+    if (t.length > 1) {
+      const dv = t[1] - t[0]
+      if (dv > 0) stv = dv
+    }
+    return { o: o, h: h, l: l, c: c, t: t, st: stv }
+  }
+
+  /* OKX candles：{"data":[["ts","开","高","低","收","量",...]]}（倒序，最新在前） */
+  function parseOkxKline(res) {
+    let raw = res
+    if (raw && raw.data !== undefined && raw.data !== null) raw = raw.data
+    const j = toObj(raw)
+    if (!j) return null
+    let arr = j
+    if (arr && arr.data && typeof arr.data.length === 'number') arr = arr.data
+    if (!arr || typeof arr.length !== 'number' || arr.length < 2) return null
+    const o = []
+    const h = []
+    const l = []
+    const c = []
+    const t = []
+    let i = 0
+    for (i = arr.length - 1; i >= 0; i--) {
+      const a = arr[i]
+      if (!a || typeof a.length !== 'number' || a.length < 6) continue
+      const tt = Number(a[0])
+      const oo = Number(a[1])
+      const hh = Number(a[2])
+      const ll = Number(a[3])
+      const cc = Number(a[4])
+      if (!(tt > 0)) continue
+      if (!layoutOk(oo, hh, ll, cc)) continue
+      o[o.length] = oo
+      h[h.length] = hh
+      l[l.length] = ll
+      c[c.length] = cc
+      t[t.length] = tt > 100000000000 ? tt : tt * 1000
+    }
+    if (c.length < 2) return null
+    let stv = 60000
+    if (t.length > 1) {
+      const dv = t[1] - t[0]
+      if (dv > 0) stv = dv
+    }
+    return { o: o, h: h, l: l, c: c, t: t, st: stv }
+  }
+
+  function parseCoinexLive(res) {
+    let raw = res
+    if (raw && raw.data !== undefined && raw.data !== null) raw = raw.data
+    const j = toObj(raw)
+    if (!j) return null
+    const arr = j.data
+    if (!arr || typeof arr.length !== 'number' || arr.length < 2) return null
+    const o = []
+    const h = []
+    const l = []
+    const c = []
+    const t = []
+    let i = 0
+    for (i = 0; i < arr.length; i++) {
+      const a = arr[i]
+      const cc = Number(a.close)
+      if (cc !== cc || cc <= 0) continue
+      o[o.length] = Number(a.open)
+      h[h.length] = Number(a.high)
+      l[l.length] = Number(a.low)
+      c[c.length] = cc
+      t[t.length] = Number(a.created_at)
+    }
+    /* 纯字符串扫描：不依赖 JSON.parse，专治引擎大包解析异常 */
+    function scanEmKlines(text) {
+      const s = '' + text
+      const a = s.indexOf('klines')
+      if (a < 0) return null
+      const b = s.indexOf('[', a)
+      if (b < 0) return null
+      let e = s.indexOf(']', b)
+      if (e < 0) e = s.length
+      const seg = s.substring(b + 1, e)
+      if (seg.length < 20) return null
+      const rows = seg.split('","')
+      const o = []
+      const h = []
+      const l = []
+      const c = []
+      const t = []
+      for (let i = 0; i < rows.length; i++) {
+        const p = rows[i].split(',')
+        if (p.length < 6) continue
+        const oo = Number(p[1])
+        const cc = Number(p[2])
+        const hh = Number(p[3])
+        const ll = Number(p[4])
+        if (!layoutOk(oo, hh, ll, cc)) continue
+        o[o.length] = oo
+        h[h.length] = hh
+        l[l.length] = ll
+        c[c.length] = cc
+        t[t.length] = 0
+      }
+      if (c.length < 2) return null
+      return { o: o, h: h, l: l, c: c, t: t, st: 300000 }
+    }
+
+    /* 腾讯分时：找最后一个 "data":[ ，取出字符串数组 */
+    function scanTxMin(text) {
+      const s = '' + text
+      const key = '"data":'
+      let a = -1
+      let pos = 0
+      let hit = s.indexOf(key, pos)
+      while (hit >= 0) {
+        a = hit
+        pos = hit + 1
+        hit = s.indexOf(key, pos)
+      }
+      if (a < 0) return null
+      const b = s.indexOf('[', a)
+      if (b < 0) return null
+      let e = s.indexOf(']', b)
+      if (e < 0) e = s.length
+      const seg = s.substring(b + 1, e)
+      if (seg.length < 10) return null
+      const rows = seg.split('","')
+      const o = []
+      const h = []
+      const l = []
+      const c = []
+      const t = []
+      for (let i = 0; i < rows.length; i++) {
+        const p = rows[i].split(' ')
+        if (p.length < 2) continue
+        const pp = Number(p[1])
+        if (!(pp > 0)) continue
+        o[o.length] = pp
+        h[h.length] = pp
+        l[l.length] = pp
+        c[c.length] = pp
+        t[t.length] = 0
+      }
+      if (c.length < 2) return null
+      return { o: o, h: h, l: l, c: c, t: t, st: 60000 }
+    }
+
+    /* 东方财富 K线：data.klines = ["时间,开,收,高,低,量", ...]，国内明文 HTTP 必通 */
+    /* 备用扫描：剥掉 [] 与引号后按 6 个一组取 OHLC（数组行格式也能吃） */
+    function scanEmKlines2(text) {
+      const s = '' + text
+      const a = s.indexOf('klines')
+      if (a < 0) return null
+      const b = s.indexOf('[', a)
+      if (b < 0) return null
+      let e = s.length
+      const DQ = String.fromCharCode(34)
+      let seg = s.substring(b + 1, e)
+      let clean = ''
+      for (let i = 0; i < seg.length; i++) {
+        const ch = seg.charAt(i)
+        if (ch === '[' || ch === ']' || ch === DQ) continue
+        clean += ch
+      }
+      const flat = clean.split(',')
+      if (flat.length < 8) return null
+      const o = []
+      const h = []
+      const l = []
+      const c = []
+      const t = []
+      let i2 = 0
+      while (i2 + 5 < flat.length) {
+        const oo = Number(flat[i2 + 1])
+        const cc = Number(flat[i2 + 2])
+        const hh = Number(flat[i2 + 3])
+        const ll = Number(flat[i2 + 4])
+        if (layoutOk(oo, hh, ll, cc)) {
+          o[o.length] = oo
+          h[h.length] = hh
+          l[l.length] = ll
+          c[c.length] = cc
+          t[t.length] = 0
+          i2 += 6
+        } else {
+          i2 += 1
+        }
+      }
+      if (c.length < 2) return null
+      return { o: o, h: h, l: l, c: c, t: t, st: 300000 }
+    }
+    function parseEmKline(res) {
+      let raw = res
+      if (raw && raw.data !== undefined && raw.data !== null) raw = raw.data
+      let k = null
+      try {
+        k = scanEmKlines(raw)
+      } catch (e) {
+        k = null
+      }
+      if (k) return k
+      try {
+        k = scanEmKlines2('' + raw)
+      } catch (e2) {
+        k = null
+      }
+      if (k) return k
+      /* 万能扫描兜底：对象先 stringify 再抠行 */
+      try {
+        let tx = raw
+        if (tx && typeof tx === 'object') tx = JSON.stringify(tx)
+        const ka = scanAny('' + tx)
+        if (ka) return ka
+      } catch (ea) {}
+      try {
+        if (raw && typeof raw === 'object') {
+          let s2 = ''
+          try {
+            if (typeof JSON.stringify === 'function') s2 = JSON.stringify(raw)
+          } catch (e3) {
+            s2 = ''
+          }
+          if (s2) return scanEmKlines2(s2)
+        }
+      } catch (e4) {}
+      return null
+    }
+
+    /* 万能扫描：不看 JSON 结构（包住/截断/对象化都能吃） */
+    function scanAny(text) {
+      const s = '' + text
+      const q = String.fromCharCode(34)
+      const parts = s.split(q)
+      const o = []
+      const h = []
+      const l = []
+      const c = []
+      const t = []
+      let st = 60000
+      let i = 1
+      for (i = 1; i < parts.length; i += 2) {
+        const row = parts[i]
+        if (!row || row.length < 5) continue
+        /* 东财：2026-09-11 21:31,34.260,34.340,34.340,34.260,3890 */
+        if (row.length > 12 && row.charAt(4) === '-' && row.indexOf(':') > 0) {
+          const em = row.split(',')
+          if (em.length >= 5) {
+            const oo = Number(em[1])
+            const cc = Number(em[2])
+            const hh = Number(em[3])
+            const ll = Number(em[4])
+            if (oo > 0 && cc > 0 && hh > 0 && ll > 0) {
+              o[o.length] = oo
+              c[c.length] = cc
+              h[h.length] = hh
+              l[l.length] = ll
+              t[t.length] = 0
+              st = 300000
+              continue
+            }
+          }
+        }
+        /* 腾讯：0930 24.440 100 2444.000 */
+        const sp = row.split(' ')
+        if (sp.length < 2) continue
+        const tm = sp[0]
+        if (tm.length !== 4) continue
+        if (tm.charAt(0) < '0' || tm.charAt(0) > '9') continue
+        if (tm.indexOf(':') >= 0) continue
+        const pp = Number(sp[1])
+        if (!(pp > 0)) continue
+        o[o.length] = pp
+        h[h.length] = pp
+        l[l.length] = pp
+        c[c.length] = pp
+        t[t.length] = 0
+        st = 60000
+      }
+      if (c.length < 2) return null
+      return { o: o, h: h, l: l, c: c, t: t, st: st }
+    }
+
+    /* 回包长度：诊断用，看得出是否被截断 */
+    function txtLen(res) {
+      try {
+        let v = res
+        if (v && v.data !== undefined && v.data !== null) v = v.data
+        if (v && typeof v === 'object') {
+          try {
+            v = JSON.stringify(v)
+          } catch (e2) {
+            v = ''
+          }
+        }
+        const s = '' + v
+        return s.length
+      } catch (e) {
+        return -1
+      }
+    }
+    /* 腾讯分时：data.<code>.data.data = ["0930 24.440 100 2444.000", ...]（只有价，合成十字星） */
+    function parseTencentMin(res) {
+      let raw = res
+      if (raw && raw.data !== undefined && raw.data !== null) raw = raw.data
+      let k = null
+      try {
+        k = scanTxMin(raw)
+      } catch (e) {
+        k = null
+      }
+      if (k) return k
+      /* 万能扫描兜底：对象先 stringify 再抠行 */
+      try {
+        let tx = raw
+        if (tx && typeof tx === 'object') tx = JSON.stringify(tx)
+        const ka = scanAny('' + tx)
+        if (ka) return ka
+      } catch (ea) {}
+      try {
+        const j = toObj(raw)
+        if (!j) return null
+        let node = j.data
+        if (!node) return null
+        let key = ''
+        for (key in node) {
+          node = node[key]
+          break
+        }
+        if (!node || !node.data) return null
+        const arr = node.data.data
+        if (!arr || typeof arr.length !== 'number' || arr.length < 2) return null
+        const o = []
+        const h = []
+        const l = []
+        const c = []
+        const t = []
+        for (let i = 0; i < arr.length; i++) {
+          const parts = ('' + arr[i]).split(' ')
+          if (parts.length < 2) continue
+          const pp = Number(parts[1])
+          if (!(pp > 0)) continue
+          o[o.length] = pp
+          h[h.length] = pp
+          l[l.length] = pp
+          c[c.length] = pp
+          t[t.length] = 0
+        }
+        if (c.length < 2) return null
+        return { o: o, h: h, l: l, c: c, t: t, st: 60000 }
+      } catch (e2) {
+        return null
+      }
+    }
+    if (c.length < 2) return null
+    return { o: o, h: h, l: l, c: c, t: t, st: 60000 }
+  }
+
+  function addLog(prev, item) {
+    let s = prev ? prev + ' ' + item : item
+    if (s.length > 104) s = s.substring(s.length - 104)
+    return s
+  }
+
+  function buildAttempts() {
+    const list = []
+    for (let i = 0; i < HARD_IPS.length; i++) {
+      list[list.length] = {
+        tag: 'IP' + (i + 1),
+        url: 'http://' + HARD_IPS[i] + GATE_PATH,
+        header: { Host: HOST },
+      }
+    }
+    return list
+  }
+
+  function joinArr(a, sep) {
+    let s = ''
+    for (let i = 0; i < a.length; i++) s += (i ? sep : '') + a[i]
+    return s
+  }
+
+  function doVibrate() {
+    try {
+      const m = getVib()
+      if (!m) return false
+      if (typeof m.getSystemDefaultMode === 'function') {
+        const mode = m.getSystemDefaultMode()
+        if (mode === 0) return false
+      }
+      if (typeof m.vibrate === 'function') {
+        m.vibrate({ mode: 'short' })
+        return true
+      }
+    } catch (e) {
+      return false
+    }
+    return false
+  }
+
+  export default {
+    data() {
+      return {
+        view: 0,
+        isRealtime: true,
+        isKline: false,
+        isSetting: false,
+
+        bgTab0: BG_ON,
+        bgTab1: BG_OFF,
+        bgTab2: BG_OFF,
+
+        /* 实时 */
+        price: '--',
+        changePct: '--',
+        priceColor: '#FFFFFF',
+        high: '--',
+        low: '--',
+        volume: '--',
+        updatedAt: '--',
+        sourceName: 'IP1',
+        statusText: '正在获取行情…',
+        statusColor: '#6B7280',
+        selfTest: '自检中…',
+        chartNote: '图:--',
+        chartInfo: '等待数据',
+        basePrice: 0,
+        samples: [],
+        journal: [],
+        hasData: false,
+        busy: false,
+        busyAt: 0,
+        timerId: 0,
+        visible: true,
+        lastPct: 0,
+        pctBand: 0,
+        pctReady: false,
+
+        /* 日K */
+        kO: [],
+        kC: [],
+        kH: [],
+        kL: [],
+        kCount: 0,
+        kLast: '--',
+        kChg: '--',
+        kChgVal: 0,
+        kLastColor: '#FFFFFF',
+        kHi: '--',
+        kLo: '--',
+        kMa7: '--',
+        kRange: '区间 --',
+        kDateA: '',
+        kDateM: '',
+        kDateB: '',
+        liveNote: '历史:未拉取',
+        histOn: false,
+        histAt: 0,
+        histT0: 0,
+        liveNext: 0,
+        liveBusy: false,
+        liveLog: '',
+        liveRound: 0,
+        liveT0: 0,
+        liveGap: 5000,
+        liveStartTs: 0,
+        curBucket: 0,
+        histBarMs: 0,
+        lastPNum: 0,
+        histSeries: null,
+        histTag: '',
+        histPending: false,
+        histPts: 0,
+        probeDone: 0,
+        liveTried: 0,
+        rawSnip: '',
+        kStatus: '日K:点上方按钮加载',
+        kStatusColor: '#6B7280',
+        kLoaded: false,
+        kLoading: false,
+
+        /* 设置 */
+        vibrateOn: true,
+        scheme: 0,
+        intervalSec: 5,
+        itvLabel: '5秒',
+        showDebug: false,
+        appVer: APP_VER,
+        crownText: '未响应（试试旋转表冠）',
+        crownAcc: 0,
+        crownT: 0,
+        crownLast: 0,
+        drawT: 0,
+        lastTick: 0,
+
+        bgVib0: BG_ON,
+        bgVib1: BG_OFF,
+        bgSch0: BG_ON,
+        bgSch1: BG_OFF,
+        bgI0: BG_ON,
+        bgI1: BG_OFF,
+        bgI2: BG_OFF,
+        bgI3: BG_OFF,
+        bgDbg0: BG_OFF,
+        bgDbg1: BG_ON,
+      }
+    },
+
+    /* ================= 生命周期 ================= */
+    onReady() {
+      this.selfTest =
+        'JSON:' +
+        tOf(JSON) +
+        ' T:' +
+        tOf(setTimeout) +
+        ' iV:' +
+        tOf(setInterval) +
+        ' el:' +
+        tOf(this.$element) +
+        ' vib:' +
+        tOf(getVib()) +
+        ' sto:' +
+        tOf(getSto())
+
+      try {
+        console.log('[btc] ' + this.selfTest)
+      } catch (e) {}
+
+      this.visible = true
+      this.cfgLoad()
+      this.applyView()
+      this.applyStyles()
+      this.applyColors()
+      /* 抢表冠焦点：旋转表冠切视图（页面中只允许一个组件获焦） */
+      try {
+        const cb = this.$element('crownbox')
+        if (cb && typeof cb.requestFocus === 'function') {
+          cb.requestFocus(true)
+          this.crownText = '已获焦，转一下试试'
+        } else {
+          this.crownText = '焦点接口不可用'
+        }
+      } catch (e) {
+        this.crownText = '异常 ' + msgOf(e)
+      }
+      this.smpLoad()
+      try {
+        if (this.samples && this.samples.length > 1) {
+          this.liveNote = '历史:本地上次曲线 ' + this.samples.length + '点，正在更新'
+        }
+      } catch (e0) {}
+      /* 抢跑策略：开机就发历史（此时行情还没开始，独占连接）
+         行情延后 2.5 秒启动（见 startTimer 的 firstTickAt） */
+      this.liveNext = 0
+      try {
+        this.loadLive()
+      } catch (eL0) {}
+      this.startTimer()
+      this.refresh()
+    },
+    onShow() {
+      this.visible = true
+      /* 隔 10 分钟以上回前台 → 历史重拿一次 */
+      try {
+        if (this.histOn && this.histAt > 0 && nowMs() - this.histAt > 600000) {
+          this.histOn = false
+          this.liveGap = 5000
+          this.liveNext = 0
+        }
+      } catch (e9) {}
+      this.startTimer()
+      this.refresh()
+      if (this.isKline) this.drawKlineLater()
+      this.crownFocus()
+    },
+    onHide() {
+      this.visible = false
+      this.stopTimer()
+    },
+    onDestroy() {
+      this.visible = false
+      this.stopTimer()
+      try {
+        if (this.drawT) {
+          clearTimeout(this.drawT)
+          this.drawT = 0
+        }
+      } catch (e) {}
+    },
+    /* 按键兜底：轮换视图（注意：按表冠=系统回主页，应用抢不到，只能用「旋转表冠」） */
+    onKey() {
+      this.tabStep(1)
+    },
+    /* 轮换视图：dir=1 下一个，dir=-1 上一个（三个视图循环） */
+    tabStep(dir) {
+      try {
+        const nv = (this.view + dir + 3) % 3
+        if (nv === 0) this.tabRealtime()
+        else if (nv === 1) this.tabKline()
+        else this.tabSetting()
+        this.crownFocus()
+      } catch (e) {}
+    },
+    /* 重新抢回表冠焦点（切视图后自愈） */
+    crownFocus() {
+      try {
+        const cb = this.$element('crownbox')
+        if (cb && typeof cb.requestFocus === 'function') cb.requestFocus(true)
+      } catch (e) {}
+    },
+    /* 切视图时短振一下（有反馈，才不至于瞎转） */
+    buzz() {
+      try {
+        if (!this.vibrateOn) return
+        doVibrate()
+      } catch (e) {}
+    },
+    /* 补历史：拉真·1分钟K线铺满实时图 */
+    loadLive() {
+      if (this.liveBusy) return
+      this.liveBusy = true
+      this.liveRound = (this.liveRound || 0) + 1
+      this.rawSnip = ''
+      this.liveLog = 'R' + this.liveRound
+      this.liveStartTs = nowMs()
+      this.liveTried = (this.liveTried || 0) + 1
+      /* 真 BTC 源优先（不用缩放、直接是 BTC 价）：Gate蜡烛 + 东财 BTC */
+      const list = []
+      const rr = this.liveRound
+      /* 腾讯分时（港股代理，需缩放锚定）：延迟 2.5s 兜底 */
+      /* 主路：Gate v4 5 分钟 K 线（域名 HTTPS + IP HTTPS 双发）→ 4 小时窗口 */
+      /* 稳字版：主路只走「已验证可通」的 Gate 老接口（HTTP + IP + Host），一次只发 1 个请求 */
+      list[list.length] = {
+        tag: 'Gate蜡烛',
+        url: 'http://' + HARD_IPS[0] + GATE_V2_KLINE,
+        header: { Host: HOST },
+        kind: 2,
+      }
+      this.liveTry(0, list)
+    },
+    /* 补历史节拍器：与行情刷新解耦，每 LIVE_RETRY 毫秒自己试一轮 */
+    maybeLive() {
+      try {
+        if (this.histOn || this.histPending) return
+        /* 最多试 2 次：再抢也只是白忙（会和行情抢连接） */
+        if ((this.liveTried || 0) >= 2) return
+        /* 看门狗：补历史请求卡死（既不回调也不超时）→ 强制解锁重试 */
+        if (this.liveBusy) {
+          if (this.liveStartTs > 0 && nowMs() - this.liveStartTs < 15000) return
+          this.liveBusy = false
+          this.liveLog = addLog(this.liveLog, '看门狗解锁')
+          if (!this.histOn) this.liveNote = '历史:卡死重试 ' + this.liveLog
+        }
+        const nowT = nowMs()
+        if (!this.liveNext || nowT >= this.liveNext) {
+          this.liveNext = nowT + this.liveGap
+          /* 指数退避：5s → 10s → 20s → 40s → 封顶 60s（别把服务器打限流） */
+          const gp = Number(this.liveGap)
+          if (!(gp > 0)) this.liveGap = 5000
+          else this.liveGap = gp < 60000 ? gp * 2 : 60000
+          this.loadLive()
+        }
+      } catch (e) {}
+    },
+    /* 补历史：全部通道「并发」发射，谁先回来用谁；一轮 ≈ 一个超时（不再累加） */
+    liveTry(idx, list) {
+      const self = this
+      if (!list || list.length === 0) {
+        this.liveBusy = false
+        if (!this.histOn) this.liveNote = '历史:重试中 ' + this.liveLog
+        return
+      }
+      const total = list.length
+      let done = 0
+      let got = false
+      const after = function () {
+        done++
+        if (done >= total && !got) {
+          self.liveBusy = false
+          if (!self.histOn) self.liveNote = '历史:重试中 ' + self.liveLog
+          self.rawSnip = ('历' + self.liveLog).slice(0, 60)
+        }
+      }
+      let i = 0
+      for (i = 0; i < total; i++) {
+        const a = list[i]
+        let settled = false
+        let wd = 0
+        try {
+          wd = setTimeout(function () {
+            if (settled) return
+            settled = true
+            if (!got) self.liveLog = addLog(self.liveLog, a.tag + ':超时')
+            after()
+          }, HIST_TIMEOUT)
+        } catch (e) {
+          wd = 0
+        }
+        const opts = { url: a.url, method: 'GET' }
+        if (a.header) opts.header = a.header
+        opts.success = function (res) {
+          if (settled) return
+          settled = true
+          try {
+            clearTimeout(wd)
+          } catch (e) {}
+          let k = null
+          try {
+            k =
+              a.kind === 6
+                ? parseBinKline(res)
+                : a.kind === 7
+                  ? parseOkxKline(res)
+                  : a.kind === 5
+                    ? parseGateV4(res)
+                    : a.kind === 3
+                      ? parseEmKline(res)
+                      : a.kind === 4
+                        ? parseTencentMin(res)
+                        : a.kind === 2
+                          ? parseGateV2(res)
+                          : a.kind === 0
+                            ? parseGateLive(res)
+                            : parseCoinexLive(res)
+          } catch (e) {
+            k = null
+          }
+          if (!k) {
+            if (!got) {
+              const sn = snipOf(res)
+              self.liveLog = addLog(
+                self.liveLog,
+                a.tag + (sn === 'Array' ? ':空Array' : ':解析') + '/' + txtLen(res)
+              )
+              self.rawSnip = a.tag + ' 包len' + txtLen(res) + ' ' + sn
+            }
+            after()
+            return
+          }
+          if (!got) {
+            got = true
+            self.seedLive(k, a.tag)
+          }
+          after()
+        }
+        opts.fail = function (_data, code) {
+          if (settled) return
+          settled = true
+          try {
+            clearTimeout(wd)
+          } catch (e) {}
+          if (!got) {
+            self.liveLog = addLog(self.liveLog, a.tag + ':fail' + msgOf(code))
+            self.liveNote = '历史:重试中 ' + self.liveLog
+          }
+          after()
+        }
+        try {
+          fetch.fetch(opts)
+        } catch (e) {
+          if (!settled) {
+            settled = true
+            after()
+          }
+        }
+      }
+    },
+    seedLive(k, tag) {
+      try {
+        if (!k || !k.c || k.c.length < 2) return
+        this.histSeries = k
+        this.histTag = tag
+        this.liveBusy = false
+        this.applyHist()
+      } catch (e) {
+        this.liveBusy = false
+        this.liveNote = '历史:异常 ' + msgOf(e)
+      }
+    },
+    /* 把历史走势「锚定」到当前 BTC 价：代理标的与 BTC 单位不同，必须缩放 */
+    applyHist() {
+      try {
+        const k = this.histSeries
+        if (!k || !k.c) return
+        const n = k.c.length
+        if (n < 2) return
+        const start = n > SRC_BARS ? n - SRC_BARS : 0
+        const cur = Number(this.lastPNum)
+        const ref = Number(k.c[n - 1])
+        if (!(cur > 0) || !(ref > 0)) {
+          this.histPending = true
+          this.liveBusy = false
+          this.liveNote = '历史:已取到' + this.histTag + '，等行情锚定'
+          return
+        }
+        const sc = cur / ref
+        const out = []
+        let i = 0
+        for (i = start; i < n; i++) {
+          out[out.length] = Number(k.o[i]) * sc
+          out[out.length] = Number(k.h[i]) * sc
+          out[out.length] = Number(k.l[i]) * sc
+          out[out.length] = Number(k.c[i]) * sc
+        }
+        if (out.length < 8) return
+        /* 图上再补一根“当前进行中”的蜡烛：o=h=l=c=最新价（随后行情会实时更新它） */
+        const curP = out[out.length - 1]
+        /* 先定粒度：粗粒度源（≥5 分钟/根）每根 K线只合成 1 根蜡烛 */
+        let stpH0 = BAR_MS
+        try {
+          if (k.st && Number(k.st) > 0) stpH0 = Number(k.st)
+        } catch (eHP) {}
+        this.histPts = stpH0 >= 300000 ? 4 : SAMPLE_PER
+        let qc = 0
+        for (qc = 0; qc < this.histPts; qc++) out[out.length] = curP
+        /* 记录历史粒度 + 当前所在的 K 线桶（实时蜡烛按它滚动） */
+        let stpH = BAR_MS
+        try {
+          if (k.st && Number(k.st) > 0) stpH = Number(k.st)
+        } catch (eH) {}
+        /* 每根蜡烛实际覆盖时长 = 历史粒度 × (SAMPLE_PER / 4) */
+        this.histBarMs = stpH * (this.histPts / 4)
+        this.curBucket = Math.floor(nowMs() / stpH)
+        this.samples = out
+        this.histPending = false
+        this.histOn = true
+        this.rawSnip = ''
+        this.histAt = nowMs()
+        this.liveGap = 5000
+        let stp = 60000
+        try {
+          if (k.st && Number(k.st) > 0) stp = Number(k.st)
+        } catch (e3) {}
+        this.histT0 = nowMs() - (n - start - 1) * stp
+        this.liveBusy = false
+        let lgT = '' + (this.liveLog || '')
+        if (lgT.length > 2 && lgT.indexOf(':') > 0) lgT = ' | ' + lgT.substring(0, 64)
+        else lgT = ''
+        this.liveNote = '历史:ok ' + this.histTag + ' ' + (n - start) + '根' + lgT
+        this.chartNote = this.liveNote
+        if (this.isRealtime) {
+          try {
+            if (typeof this.plotLine === 'function') this.plotLine()
+          } catch (e) {}
+        }
+      } catch (e2) {
+        this.liveBusy = false
+        this.liveNote = '历史:异常 ' + msgOf(e2)
+      }
+    },
+    /* 旋转表冠回调：正转（逆时针）→ 下一个视图，反转 → 上一个视图 */
+    onCrown(ev) {
+      try {
+        /* 优先用官方 direction（逆时针=true）；没有就退回 delta */
+        let d = 0
+        const dir = ev && ev.direction !== undefined ? ev.direction : null
+        if (dir === true) d = -1
+        else if (dir === false) d = 1
+        else {
+          const raw = ev && ev.delta !== undefined ? ev.delta : 0
+          d = Number(raw)
+          if (d !== d) d = 0
+        }
+        if (CROWN_INVERT) d = -d
+        let now = 0
+        try {
+          now = Date.now()
+        } catch (e) {}
+        const NEED = 2
+        const GAP = 600
+        const IDLE = 700
+        let acc = Number(this.crownAcc)
+        if (acc !== acc) acc = 0
+        /* 冷却期内清零累计（否则冷却一结束就连着跳） */
+        if (now && this.crownT && now - this.crownT < GAP) {
+          this.crownAcc = 0
+          this.crownLast = now
+          this.crownText = '冷却中…'
+          return true
+        }
+        /* 空闲超过 IDLE 毫秒：重新累计（慢慢转不会突然跳） */
+        if (now && this.crownLast && now - this.crownLast > IDLE) acc = 0
+        this.crownLast = now
+        if (d === 0) return true
+        acc = acc + d
+        this.crownAcc = acc
+        this.crownText = d > 0 ? '下一个视图 ›' : '‹ 上一个'
+        if (acc >= NEED) {
+          this.crownAcc = 0
+          this.crownT = now
+          this.tabStep(1)
+          this.buzz()
+        } else if (acc <= -NEED) {
+          this.crownAcc = 0
+          this.crownT = now
+          this.tabStep(-1)
+          this.buzz()
+        }
+        return true
+      } catch (e) {
+        try {
+          this.crownText = '异常 ' + msgOf(e)
+        } catch (e2) {}
+        return true
+      }
+    },
+
+    /* ================= 设置存取 ================= */
+    cfgLoad() {
+      const s = getSto()
+      if (!s || typeof s.getSync !== 'function') return
+      try {
+        const v = s.getSync({ key: CFG_KEY })
+        if (v && typeof v === 'object') {
+          if (v.vibrate === false) this.vibrateOn = false
+          if (v.vibrate === true) this.vibrateOn = true
+          if (v.scheme === 1) this.scheme = 1
+          if (v.scheme === 0) this.scheme = 0
+          if (v.interval === 30) this.intervalSec = 30
+          if (v.interval === 60) this.intervalSec = 60
+          if (v.interval === 15) this.intervalSec = 15
+          if (v.interval === 5) this.intervalSec = 5
+          if (v.debug === false) this.showDebug = false
+          if (v.debug === true) this.showDebug = true
+        }
+      } catch (e) {}
+    },
+    cfgSave() {
+      const s = getSto()
+      if (!s || typeof s.set !== 'function') return
+      try {
+        s.set({
+          key: CFG_KEY,
+          value: {
+            vibrate: this.vibrateOn,
+            scheme: this.scheme,
+            interval: this.intervalSec,
+            debug: this.showDebug,
+          },
+        })
+      } catch (e) {}
+    },
+    /* 采样持久化：重启后分时图还在 */
+    smpLoad() {
+      const s = getSto()
+      if (!s || typeof s.getSync !== 'function') return
+      try {
+        const v = s.getSync({ key: SMP_KEY })
+        const list = v && v.list ? v.list : null
+        if (!list || !list.length) return
+        const out = []
+        let i = 0
+        for (i = 0; i < list.length; i++) {
+          const x = Number(list[i])
+          if (x === x && x > 0) out[out.length] = x
+        }
+        if (out.length > 1) this.samples = out
+      } catch (e) {}
+    },
+
+    /* ================= 设置改值 ================= */
+    setVibOn() {
+      this.vibrateOn = true
+      this.cfgSave()
+      this.applyStyles()
+    },
+    setVibOff() {
+      this.vibrateOn = false
+      this.cfgSave()
+      this.applyStyles()
+    },
+    setScheme0() {
+      this.scheme = 0
+      this.cfgSave()
+      this.applyStyles()
+      this.applyColors()
+    },
+    setScheme1() {
+      this.scheme = 1
+      this.cfgSave()
+      this.applyStyles()
+      this.applyColors()
+    },
+    setItvPrev() {
+      const i = itvIndex(this.intervalSec)
+      this.setIntervalTo(ITV_STEPS[(i + ITV_STEPS.length - 1) % ITV_STEPS.length])
+    },
+    setItvNext() {
+      const i = itvIndex(this.intervalSec)
+      this.setIntervalTo(ITV_STEPS[(i + 1) % ITV_STEPS.length])
+    },
+    setItv5() {
+      this.setIntervalTo(5)
+    },
+    setItv15() {
+      this.setIntervalTo(15)
+    },
+    setItv30() {
+      this.setIntervalTo(30)
+    },
+    setItv60() {
+      this.setIntervalTo(60)
+    },
+    setIntervalTo(v) {
+      this.intervalSec = v
+      this.cfgSave()
+      this.applyStyles()
+      this.stopTimer()
+      this.startTimer()
+    },
+    setDbgOn() {
+      this.showDebug = true
+      this.cfgSave()
+      this.applyStyles()
+    },
+    setDbgOff() {
+      this.showDebug = false
+      this.cfgSave()
+      this.applyStyles()
+    },
+    restoreDefaults() {
+      this.vibrateOn = true
+      this.scheme = 0
+      this.showDebug = false
+      this.cfgSave()
+      this.applyStyles()
+      this.applyColors()
+      this.setIntervalTo(5)
+    },
+
+    /* ================= 样式/视图 ================= */
+    applyView() {
+      const v = this.view
+      this.isRealtime = v === 0
+      this.isKline = v === 1
+      this.isSetting = v === 2
+    },
+    applyStyles() {
+      const v = this.view
+      this.bgTab0 = v === 0 ? BG_ON : BG_OFF
+      this.bgTab1 = v === 1 ? BG_ON : BG_OFF
+      this.bgTab2 = v === 2 ? BG_ON : BG_OFF
+
+      this.bgVib0 = this.vibrateOn ? BG_ON : BG_OFF
+      this.bgVib1 = this.vibrateOn ? BG_OFF : BG_ON
+
+      this.bgSch0 = this.scheme === 0 ? BG_ON : BG_OFF
+      this.bgSch1 = this.scheme === 1 ? BG_ON : BG_OFF
+
+      this.bgI0 = this.intervalSec === 5 ? BG_ON : BG_OFF
+      this.bgI1 = this.intervalSec === 15 ? BG_ON : BG_OFF
+      this.bgI2 = this.intervalSec === 30 ? BG_ON : BG_OFF
+      this.bgI3 = this.intervalSec === 60 ? BG_ON : BG_OFF
+      this.itvLabel = this.intervalSec + '秒'
+
+      this.bgDbg0 = this.showDebug ? BG_ON : BG_OFF
+      this.bgDbg1 = this.showDebug ? BG_OFF : BG_ON
+    },
+    applyColors() {
+      this.priceColor = upColor(this, this.lastPct >= 0)
+      this.kLastColor = upColor(this, this.kChgVal >= 0)
+    },
+
+    /* ================= 视图切换 ================= */
+    tabRealtime() {
+      this.view = 0
+      this.applyView()
+      this.applyStyles()
+      this.refresh()
+      this.drawLater(0, 200)
+    },
+    tabKline() {
+      this.view = 1
+      this.applyView()
+      this.applyStyles()
+      if (this.kLoaded) this.drawLater(1, 200)
+      else this.loadKline()
+    },
+    tabSetting() {
+      this.view = 2
+      this.applyView()
+      this.applyStyles()
+    },
+    drawLater(which, ms) {
+      const self = this
+      try {
+        if (this.drawT) {
+          clearTimeout(this.drawT)
+          this.drawT = 0
+        }
+        this.drawT = setTimeout(function () {
+          self.drawT = 0
+          try {
+            if (which === 0) {
+              if (typeof self.plotLine === 'function') self.plotLine()
+            } else {
+              if (typeof self.plotKline === 'function') self.plotKline()
+            }
+          } catch (e) {}
+        }, ms || 60)
+      } catch (e) {}
+    },
+    drawKlineLater() {
+      this.drawLater(1, 200)
+    },
+
+    /* ================= 定时器 ================= */
+    startTimer() {
+      if (this.timerId) return
+      const self = this
+      let ms = 15000
+      try {
+        ms = this.intervalSec * 1000
+      } catch (e) {}
+      try {
+        if (typeof setInterval !== 'function') return
+        this.lastTick = nowMs()
+        /* 首次行情延后 2.5 秒：让补历史请求先跑完，避免抢连接 */
+        self.firstTickAt = nowMs() + 2500
+        /* 1 秒心跳：行情按 intervalSec 刷，补历史固定每 5 秒试一轮 */
+        this.timerId = setInterval(function () {
+          try {
+            self.maybeLive()
+          } catch (e1) {}
+          const nw = nowMs()
+          if (self.firstTickAt && nw < self.firstTickAt) return
+          const gap = nw - self.lastTick
+          if (gap >= ms || gap < 0) {
+            self.lastTick = nw
+            self.refresh()
+          }
+        }, 1000)
+      } catch (e) {
+        this.timerId = 0
+      }
+    },
+    stopTimer() {
+      if (this.timerId) {
+        try {
+          clearInterval(this.timerId)
+        } catch (e) {}
+        this.timerId = 0
+      }
+    },
+
+    /* ================= 实时行情 ================= */
+    refresh() {
+      const now = nowMs()
+      /* 启动前 2.5 秒不发行情：让补历史请求先独占连接 */
+      if (this.firstTickAt && now && now < this.firstTickAt) return
+      if (this.busy) {
+        if (now && now - this.busyAt < 20000) return
+      }
+      this.busy = true
+      this.busyAt = now
+      this.journal = []
+      if (!this.hasData) {
+        this.statusText = '正在获取行情…'
+        this.statusColor = '#6B7280'
+      }
+      this.trySource(0)
+    },
+
+    trySource(i) {
+      const self = this
+      const list = buildAttempts()
+
+      if (i >= list.length) {
+        self.busy = false
+        self.statusText = '失败 ' + joinArr(self.journal, ' ')
+        self.statusColor = '#FF4D4F'
+        return
+      }
+
+      const a = list[i]
+      self.statusText = '尝试 ' + (i + 1) + '/' + list.length + ' ' + a.tag + ' …'
+
+      let settled = false
+      let watchdog = 0
+      try {
+        watchdog = setTimeout(function () {
+          if (settled) return
+          settled = true
+          self.journal[self.journal.length] = a.tag + ':超时'
+          self.trySource(i + 1)
+        }, REQ_TIMEOUT)
+      } catch (e) {
+        watchdog = 0
+      }
+
+      const opts = { url: a.url, method: 'GET' }
+      if (a.header) opts.header = a.header
+
+      opts.success = function (res) {
+        if (settled) return
+        settled = true
+        try {
+          clearTimeout(watchdog)
+        } catch (e) {}
+
+        let t = null
+        try {
+          t = pickTicker(res)
+        } catch (e) {
+          t = null
+        }
+        if (!t) {
+          self.journal[self.journal.length] = a.tag + ':解析'
+          self.rawSnip = a.tag + '回包 ' + snipOf(res)
+          self.trySource(i + 1)
+          return
+        }
+
+        let step = 0
+        try {
+          step = 1
+          self.sourceName = a.tag
+
+          step = 2
+          const up = t.pct >= 0
+
+          step = 3
+          self.price = '$' + fixed2(t.last)
+
+          step = 4
+          self.changePct = (up ? '+' : '') + fixed2(t.pct) + '%'
+
+          step = 5
+          self.lastPct = t.pct
+          self.lastPNum = Number(t.last)
+          if (self.histPending) {
+            self.histPending = false
+            self.applyHist()
+          }
+          self.priceColor = upColor(self, up)
+
+          step = 6
+          const denom = 1 + t.pct / 100
+          if (denom > 0.01) self.basePrice = t.last / denom
+
+          step = 7
+          self.high = fixed2(t.high)
+
+          step = 8
+          self.low = fixed2(t.low)
+
+          step = 9
+          self.volume = fmtVol(t.vol)
+
+          step = 10
+          self.updatedAt = clockText()
+
+          step = 11
+          self.hasData = true
+
+          step = 12
+          /* 按 K 线桶聚合：同一根内实时更新 h/l/c，跨桶才新增一根（6 小时跨度不缩水） */
+          const old = self.samples ? self.samples : []
+          /* 有历史：按历史粒度；没历史：1 分钟一根（48 分钟自己攒满一屏） */
+          const noHist = !(self.histBarMs > 0)
+          /* 自攒时 2.5 分钟/根 → 48 根 = 2 小时窗口（与用户需求一致） */
+          const barMs = noHist ? 150000 : self.histBarMs
+          /* 每根蜡烛合成点数（细粒度 10 点；粗粒度 4 点；自攒 30 点 = 2.5 分钟） */
+          const PT = noHist ? 30 : self.histPts > 0 ? self.histPts : SAMPLE_PER
+          const bkt = Math.floor(nowMs() / barMs)
+          const out = []
+          let j = 0
+          for (j = 0; j < old.length; j++) out[j] = old[j]
+          if (self.curBucket !== bkt) {
+            self.curBucket = bkt
+            const keep = SLOT_K * PT
+            while (out.length > keep) out.shift()
+            let qn = 0
+            for (qn = 0; qn < PT; qn++) out[out.length] = t.last
+          } else {
+            const m = out.length
+            if (m >= PT) {
+              let hh = out[m - PT + 1]
+              let ll = out[m - PT + 2]
+              if (t.last > hh) hh = t.last
+              if (t.last < ll) ll = t.last
+              out[m - PT + 1] = hh
+              out[m - PT + 2] = ll
+              out[m - 1] = t.last
+            } else {
+              out[out.length] = t.last
+            }
+          }
+          self.samples = out
+
+          /* 每完成一根分时蜡烛（约 1 分钟）落盘一次，重启后图还在 */
+          if (Math.floor(out.length / PT) > Math.floor(old.length / PT)) {
+            try {
+              const st = getSto()
+              if (st && typeof st.set === 'function') {
+                st.set({ key: SMP_KEY, value: { list: out } })
+              }
+            } catch (e3) {}
+          }
+
+          /* 补历史节拍器改由定时器统一驱动（行情成/败都不影响它） */
+          self.maybeLive()
+
+          step = 13
+          if (self.isRealtime) {
+            try {
+              if (typeof self.plotLine === 'function') self.plotLine()
+            } catch (e2) {
+              self.chartNote = '图:@' + msgOf(e2)
+            }
+          }
+
+          step = 14
+          let tail = ''
+          const band = t.pct >= 5 ? 1 : t.pct <= -5 ? -1 : 0
+          if (!self.pctReady) {
+            self.pctReady = true
+            self.pctBand = band
+          } else if (band !== self.pctBand) {
+            self.pctBand = band
+            if (band !== 0) {
+              if (self.vibrateOn && self.visible) {
+                if (doVibrate()) tail = ' · 已振动提醒'
+              } else if (!self.vibrateOn) {
+                tail = ' · 提醒(未开振动)'
+              }
+            }
+          }
+
+          step = 15
+          self.statusText =
+            'OK · ' +
+            self.updatedAt +
+            ' · ' +
+            self.intervalSec +
+            '秒自动刷新' +
+            tail +
+            ' · ' +
+            (self.histOn ? '历√' : '历' + String(self.liveLog || '-').slice(0, 16))
+          /* 历史补图看门狗（由行情节拍驱动，不依赖 setTimeout） */
+          try {
+            if (
+              self.liveBusy &&
+              self.liveStartTs > 0 &&
+              nowMs() - self.liveStartTs > HIST_TIMEOUT + 2000
+            ) {
+              self.liveBusy = false
+              self.liveLog = addLog(self.liveLog, '看门狗')
+              if (!self.histOn) self.liveNote = '历史:卡死重试 ' + self.liveLog
+            }
+          } catch (eW) {}
+          self.statusColor = '#00C853'
+        } catch (e) {
+          self.statusText = '更新异常@' + step + ' ' + msgOf(e)
+          self.statusColor = '#FF4D4F'
+        }
+        self.busy = false
+      }
+
+      opts.fail = function (_data, code) {
+        if (settled) return
+        settled = true
+        try {
+          clearTimeout(watchdog)
+        } catch (e) {}
+        self.journal[self.journal.length] = a.tag + ':' + msgOf(code)
+        self.trySource(i + 1)
+      }
+
+      try {
+        fetch.fetch(opts)
+      } catch (e) {
+        if (settled) return
+        settled = true
+        try {
+          clearTimeout(watchdog)
+        } catch (e2) {}
+        self.journal[self.journal.length] = a.tag + ':发起异常'
+        self.trySource(i + 1)
+      }
+    },
+
+    /* 分时曲线（大图版）：纵轴 =相对 24h 基准价的涨跌幅%，中间 0% 灰线 */
+    plotLine() {
+      const data = this.samples
+      const base = this.basePrice
+      const n = data ? data.length : 0
+
+      let el = null
+      try {
+        el = this.$element('chartR')
+      } catch (e) {
+        this.chartNote = '图:无$element'
+        return
+      }
+      if (!el) {
+        this.chartNote = '图:元素为空'
+        return
+      }
+
+      let ctx = null
+      try {
+        if (typeof el.getContext !== 'function') {
+          this.chartNote = '图:无getContext'
+          return
+        }
+        ctx = el.getContext('2d')
+      } catch (e) {
+        this.chartNote = '图:getContext异常'
+        return
+      }
+      if (!ctx) {
+        this.chartNote = '图:ctx为空'
+        return
+      }
+
+      try {
+        ctx.clearRect(0, 0, RW, RH)
+      } catch (e) {}
+
+      /* 采样 → 蜡烛：每根蜡烛点数必须与当前粒度一致
+         （有历史 = histPts（粗粒度4点/根）；自攒 = 12 点 = 1 分钟/根）
+         数据太少时退化为 1 点 1 根，让图尽快“长”出来 */
+      let PER = SAMPLE_PER
+      try {
+        PER = this.histPts > 0 ? this.histPts : 12
+      } catch (eP0) {
+        PER = SAMPLE_PER
+      }
+      const bars = Math.floor(n / PER)
+      if (bars < 1 || !base || base <= 0) {
+        this.chartNote = '图:采样中 ' + n + '/' + PER
+        this.chartInfo = base > 0 ? '采样中 ' + n + '点' : '等待行情'
+        return
+      }
+
+      try {
+        const padX = 14
+        const padL = 46
+        const padY = 10
+        const cnt = bars < SLOT_K ? bars : SLOT_K
+        /* 固定槽位：始终按 SLOT_K 格排布，数据不足时左侧留空(NaN)
+           目的：蜡烛宽度与位置恒定，图从右往左平滑滚动，不再整体缩放 */
+        /* 数据不足 40 根：用 cnt 槽（铺满、图会“生长”，看得出刷新）
+           满 40 根后：固定 40 槽滚动（宽度与位置恒定，不被挤压） */
+        const slots = cnt < SLOT_K ? cnt : SLOT_K
+        const gapN = slots - cnt
+        const kO = []
+        const kC = []
+        const kH = []
+        const kL = []
+        let i = 0
+        let j = 0
+        for (i = 0; i < slots; i++) {
+          if (i < gapN) {
+            kO[i] = NaN
+            kC[i] = NaN
+            kH[i] = NaN
+            kL[i] = NaN
+            continue
+          }
+          const s = (bars - cnt + (i - gapN)) * PER
+          const oo = data[s]
+          const cc = data[s + PER - 1]
+          let hh = data[s]
+          let ll = data[s]
+          for (j = 0; j < PER; j++) {
+            const v = data[s + j]
+            if (v > hh) hh = v
+            if (v < ll) ll = v
+          }
+          kO[i] = oo
+          kC[i] = cc
+          kH[i] = hh
+          kL[i] = ll
+        }
+
+        let hiK = kH[gapN]
+        let loK = kL[gapN]
+        for (i = gapN + 1; i < slots; i++) {
+          if (kH[i] > hiK) hiK = kH[i]
+          if (kL[i] < loK) loK = kL[i]
+        }
+        /* 把 0% 基准价也纳入范围，灰线才看得见 */
+        let hi = hiK
+        let lo = loK
+        if (base > hi) hi = base
+        if (base < lo) lo = base
+        let span = hi - lo
+        if (span <= 0) span = hi * 0.0008 || 1
+        const mid = (hi + lo) / 2
+        const yTop = mid + span * 0.58
+        const yBot = mid - span * 0.58
+        const innerH = RH - LABEL_H - padY * 2
+
+        const yOf = function (v) {
+          return padY + ((yTop - v) / (yTop - yBot)) * innerH
+        }
+
+        const cw = (RW - padL - padX) / slots
+        let bw = cw * 0.62
+        if (bw < 2) bw = 2
+        if (bw > 18) bw = 18
+
+        /* 0% 基准灰线（基准价 = 24 小时前价格） */
+        const y0 = yOf(base)
+        if (y0 >= padY && y0 <= RH - padY) {
+          ctx.fillStyle = '#4B5563'
+          ctx.fillRect(padL, y0, RW - padL - padX, 1)
+        }
+
+        /* 左侧价格刻度：顶/中/底 + 0%基准价 */
+        try {
+          const axisPrice = function (v) {
+            let s = fixed2(v)
+            const kk = s.indexOf('.')
+            if (kk > 0) s = s.substring(0, kk)
+            return s
+          }
+          ctx.font = '11px'
+          ctx.textAlign = 'left'
+          ctx.textBaseline = 'middle'
+          const tickL = [hi, mid, lo, base]
+          const tickC = ['#9CA3AF', '#6B7280', '#9CA3AF', '#E5E7EB']
+          let prevY = -99
+          let qi = 0
+          for (qi = 0; qi < 4; qi++) {
+            const yy = yOf(tickL[qi])
+            if (yy < padY + 7) continue
+            if (yy > RH - LABEL_H - 4) continue
+            if (yy - prevY < 9) continue
+            ctx.fillStyle = tickC[qi]
+            ctx.fillText(axisPrice(tickL[qi]), 4, yy)
+            prevY = yy
+          }
+        } catch (eT) {}
+
+        /* 蜡烛（和日K同款画法，固定槽位滚动） */
+        for (i = gapN; i < slots; i++) {
+          const x = padL + i * cw + (cw - bw) / 2
+          const yHh = yOf(kH[i])
+          const yLl = yOf(kL[i])
+          const yOo = yOf(kO[i])
+          const yCc = yOf(kC[i])
+          ctx.fillStyle = upColor(this, kC[i] >= kO[i])
+
+          let wickH = yLl - yHh
+          if (wickH < 2) wickH = 2
+          ctx.fillRect(x + bw / 2 - 0.5, yHh, 1, wickH)
+
+          let top = yOo
+          let bot = yCc
+          if (top > bot) {
+            const tmp = top
+            top = bot
+            bot = tmp
+          }
+          let bh = bot - top
+          if (bh < 2) bh = 2
+          ctx.fillRect(x, top, bw, bh)
+        }
+
+        /* MA7 收盘均线（橙色，和日K同款） */
+        if (cnt >= 7) {
+          ctx.strokeStyle = COLOR_MA
+          ctx.lineWidth = 2
+          ctx.beginPath()
+          let first = true
+          for (i = gapN + 6; i < slots; i++) {
+            let sum = 0
+            let k = 0
+            for (k = i - 6; k <= i; k++) sum += kC[k]
+            const avg = sum / 7
+            const x = padL + i * cw + cw / 2
+            const y = yOf(avg)
+            if (first) {
+              ctx.moveTo(x, y)
+              first = false
+            } else {
+              ctx.lineTo(x, y)
+            }
+          }
+          ctx.stroke()
+        }
+
+        /* 时间刻度（底部）+ 竖向网格 */
+        const endMs = nowMs()
+        /* 每根蜡烛的真实时长：历史粒度（Gate = 30 分钟）或兜底 30 分钟 */
+        let barMs = 150000
+        try {
+          if (this.histBarMs > 0) barMs = this.histBarMs
+          else if (this.histSeries && Number(this.histSeries.st) > 0)
+            barMs = Number(this.histSeries.st)
+        } catch (eS1) {}
+        const spanMs = cnt * barMs
+        const startMs = endMs - spanMs
+        const tA = hhmm(startMs)
+        const tM = hhmm((startMs + endMs) / 2)
+        const tB = hhmm(endMs)
+        ctx.fillStyle = '#1F2937'
+        ctx.fillRect(padL + 1, padY, 1, RH - LABEL_H - padY * 2)
+        ctx.fillRect((padL + RW - padX) / 2, padY, 1, RH - LABEL_H - padY * 2)
+        ctx.fillRect(RW - padX - 2, padY, 1, RH - LABEL_H - padY * 2)
+        ctx.fillStyle = '#6B7280'
+        ctx.font = '16px'
+        ctx.textAlign = 'left'
+        ctx.fillText(tA, padL, RH - 5)
+        ctx.textAlign = 'center'
+        ctx.fillText(tM, (padL + RW - padX) / 2, RH - 5)
+        ctx.textAlign = 'right'
+        ctx.fillText(tB, RW - padX, RH - 5)
+
+        const lastP = kC[slots - 1]
+        this.chartInfo =
+          '24h前 ' +
+          signedPct(((lastP - base) / base) * 100) +
+          ' 高 ' +
+          signedPct(((hiK - base) / base) * 100) +
+          ' 低 ' +
+          signedPct(((loK - base) / base) * 100)
+        this.chartNote = (this.histOn ? '图:ok ' : '积累中 ') + cnt + '/48 基准' + fixed2(base)
+      } catch (e) {
+        this.chartNote = '图:绘制异常 ' + msgOf(e)
+      }
+    },
+
+    /* ================= 日K ================= */
+    loadKline() {
+      if (this.kLoading) return
+      this.kLoading = true
+      this.kStatus = '日K:加载中…'
+      this.kStatusColor = '#9CA3AF'
+
+      const self = this
+      let settled = false
+      let wd = 0
+      try {
+        wd = setTimeout(function () {
+          if (settled) return
+          settled = true
+          self.kLoading = false
+          self.kStatus = '日K:超时'
+          self.kStatusColor = '#FF4D4F'
+        }, REQ_TIMEOUT_K)
+      } catch (e) {
+        wd = 0
+      }
+
+      const opts = { url: KLINE_URL, method: 'GET', header: UA_H }
+
+      opts.success = function (res) {
+        if (settled) return
+        settled = true
+        try {
+          clearTimeout(wd)
+        } catch (e) {}
+        self.kLoading = false
+
+        let step = 0
+        try {
+          step = 1
+          let arr = null
+          try {
+            arr = pickKline(res)
+          } catch (ePK) {}
+          if (!arr) {
+            try {
+              arr = pickEmDay(res)
+            } catch (ePD) {}
+          }
+          if (!arr) {
+            self.kStatus = '日K:解析失败'
+            self.kStatusColor = '#FF4D4F'
+            return
+          }
+
+          step = 2
+          const n = arr.length
+          const start = n > KLINE_N ? n - KLINE_N : 0
+          const o = []
+          const c = []
+          const h = []
+          const l = []
+          let i = 0
+          for (i = start; i < n; i++) {
+            const row = arr[i]
+            o[o.length] = safeNum(row[1])
+            c[c.length] = safeNum(row[2])
+            h[h.length] = safeNum(row[3])
+            l[l.length] = safeNum(row[4])
+          }
+
+          step = 3
+          self.kO = o
+          self.kC = c
+          self.kH = h
+          self.kL = l
+          self.kCount = c.length
+
+          step = 4
+          self.kRange = '区间 ' + ('' + arr[start][0]) + ' ~ ' + ('' + arr[n - 1][0])
+          self.kDateA = mmdd(arr[start][0])
+          self.kDateM = mmdd(arr[start + Math.floor((n - 1 - start) / 2)][0])
+          self.kDateB = mmdd(arr[n - 1][0])
+
+          step = 5
+          let hh = h[0]
+          let ll = l[0]
+          for (i = 1; i < h.length; i++) {
+            if (h[i] > hh) hh = h[i]
+            if (l[i] < ll) ll = l[i]
+          }
+          self.kHi = fixed2(hh)
+          self.kLo = fixed2(ll)
+
+          step = 6
+          const ma = c.length >= 7 ? 7 : c.length
+          let sum = 0
+          for (i = c.length - ma; i < c.length; i++) sum += c[i]
+          const ma7 = ma > 0 ? sum / ma : 0
+          self.kMa7 = fixed2(ma7)
+
+          step = 7
+          const last = c[c.length - 1]
+          const prev = c.length > 1 ? c[c.length - 2] : last
+          const chg = prev > 0 ? ((last - prev) / prev) * 100 : 0
+          self.kChgVal = chg
+          self.kLast = fixed2(last)
+          self.kChg = (chg >= 0 ? '+' : '') + fixed2(chg) + '%'
+          self.kLastColor = upColor(self, chg >= 0)
+
+          step = 8
+          self.kLoaded = true
+          self.kStatus = '已加载 · 港股收盘价'
+          self.kStatusColor = '#6B7280'
+
+          step = 9
+          if (self.isKline) {
+            try {
+              if (typeof self.plotKline === 'function') self.plotKline()
+            } catch (e2) {
+              self.kStatus = '日K:绘制@' + msgOf(e2)
+            }
+          }
+        } catch (e) {
+          self.kStatus = '日K:异常@' + step + ' ' + msgOf(e)
+          self.kStatusColor = '#FF4D4F'
+        }
+      }
+
+      opts.fail = function (_data, code) {
+        if (settled) return
+        settled = true
+        try {
+          clearTimeout(wd)
+        } catch (e) {}
+        self.kLoading = false
+        self.kStatus = '日K:失败 code=' + msgOf(code)
+        self.kStatusColor = '#FF4D4F'
+      }
+
+      try {
+        fetch.fetch(opts)
+      } catch (e) {
+        if (settled) return
+        settled = true
+        try {
+          clearTimeout(wd)
+        } catch (e2) {}
+        self.kLoading = false
+        self.kStatus = '日K:发起异常 ' + msgOf(e)
+        self.kStatusColor = '#FF4D4F'
+      }
+    },
+
+    /* 蜡烛图（大图 + MA7 橙色均线） */
+    plotKline() {
+      const o = this.kO
+      const c = this.kC
+      const h = this.kH
+      const l = this.kL
+      const n = c ? c.length : 0
+      if (n < 2) {
+        this.kStatus = '日K:数据不足'
+        return
+      }
+
+      let el = null
+      try {
+        el = this.$element('chartK')
+      } catch (e) {
+        this.kStatus = '日K:无$element'
+        return
+      }
+      if (!el) {
+        this.kStatus = '日K:元素为空'
+        return
+      }
+
+      let ctx = null
+      try {
+        if (typeof el.getContext !== 'function') {
+          this.kStatus = '日K:无getContext'
+          return
+        }
+        ctx = el.getContext('2d')
+      } catch (e) {
+        this.kStatus = '日K:getContext异常'
+        return
+      }
+      if (!ctx) {
+        this.kStatus = '日K:ctx为空'
+        return
+      }
+
+      try {
+        const padX = 6
+        const padL = 46
+        const padY = 10
+
+        ctx.clearRect(0, 0, KW, KH)
+
+        let hi = h[0]
+        let lo = l[0]
+        let i
+        for (i = 1; i < n; i++) {
+          if (h[i] > hi) hi = h[i]
+          if (l[i] < lo) lo = l[i]
+        }
+        let span = hi - lo
+        if (span <= 0) span = hi * 0.001 || 1
+        const innerH = KH - LABEL_H - padY * 2
+
+        const cw = (KW - padL - padX) / n
+        let bw = cw * 0.66
+        if (bw < 2) bw = 2
+
+        const yOf = function (v) {
+          return padY + ((hi - v) / span) * innerH
+        }
+
+        /* 左侧价格刻度：高/中/低/最新收盘 */
+        try {
+          const axisPrice = function (v) {
+            let s = fixed2(v)
+            const kk = s.indexOf('.')
+            if (kk > 0) s = s.substring(0, kk)
+            return s
+          }
+          ctx.font = '11px'
+          ctx.textAlign = 'left'
+          ctx.textBaseline = 'middle'
+          const midD = (hi + lo) / 2
+          const tickL = [hi, midD, lo, c[n - 1]]
+          const tickC = ['#9CA3AF', '#6B7280', '#9CA3AF', '#E5E7EB']
+          let prevY = -99
+          let qi = 0
+          for (qi = 0; qi < 4; qi++) {
+            const yy = yOf(tickL[qi])
+            if (yy < padY + 7) continue
+            if (yy > KH - LABEL_H - 4) continue
+            if (yy - prevY < 9) continue
+            ctx.fillStyle = tickC[qi]
+            ctx.fillText(axisPrice(tickL[qi]), 4, yy)
+            prevY = yy
+          }
+        } catch (eT) {}
+
+        /* 蜡烛 */
+        for (i = 0; i < n; i++) {
+          const x = padL + cw * i + (cw - bw) / 2
+          const yH = yOf(h[i])
+          const yL = yOf(l[i])
+          const yO = yOf(o[i])
+          const yC = yOf(c[i])
+
+          const isUp = c[i] >= o[i]
+          ctx.fillStyle = upColor(this, isUp)
+
+          let wickH = yL - yH
+          if (wickH < 2) wickH = 2
+          ctx.fillRect(x + bw / 2 - 0.5, yH, 1, wickH)
+
+          let top = yO
+          let bot = yC
+          if (top > bot) {
+            const tmp = top
+            top = bot
+            bot = tmp
+          }
+          let bh = bot - top
+          if (bh < 2) bh = 2
+          ctx.fillRect(x, top, bw, bh)
+        }
+
+        /* MA7 均线 */
+        if (n >= 7) {
+          ctx.strokeStyle = COLOR_MA
+          ctx.lineWidth = 2
+          ctx.beginPath()
+          let first = true
+          for (i = 6; i < n; i++) {
+            let sum = 0
+            let k = 0
+            for (k = i - 6; k <= i; k++) sum += c[k]
+            const avg = sum / 7
+            const x = padL + cw * i + cw / 2
+            const y = yOf(avg)
+            if (first) {
+              ctx.moveTo(x, y)
+              first = false
+            } else {
+              ctx.lineTo(x, y)
+            }
+          }
+          ctx.stroke()
+        }
+
+        /* 时间刻度（底部，日期）+ 竖向网格 */
+        ctx.fillStyle = '#1F2937'
+        ctx.fillRect(padL + 1, padY, 1, KH - LABEL_H - padY * 2)
+        ctx.fillRect((padL + KW - padX) / 2, padY, 1, KH - LABEL_H - padY * 2)
+        ctx.fillRect(KW - padX - 2, padY, 1, KH - LABEL_H - padY * 2)
+        const dA = this.kDateA ? this.kDateA : ''
+        const dM = this.kDateM ? this.kDateM : ''
+        const dB = this.kDateB ? this.kDateB : ''
+        ctx.fillStyle = '#6B7280'
+        ctx.font = '16px'
+        ctx.textAlign = 'left'
+        ctx.fillText(dA, padL, KH - 5)
+        ctx.textAlign = 'center'
+        ctx.fillText(dM, (padL + KW - padX) / 2, KH - 5)
+        ctx.textAlign = 'right'
+        ctx.fillText(dB, KW - padX, KH - 5)
+
+        this.kStatus = '日K:ok ' + n + '根'
+        this.kStatusColor = '#6B7280'
+      } catch (e) {
+        this.kStatus = '日K:绘制异常 ' + msgOf(e)
+        this.kStatusColor = '#FF4D4F'
+      }
+    },
+  }
+</script>
+
+<style>
+  /* 页面样式已在各组件上以内联形式声明，此处保持为空即可 */
+</style>
